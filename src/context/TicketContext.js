@@ -5,25 +5,27 @@ export const TicketContext = createContext();
 export const TicketProvider = ({ children }) => {
   const [tickets, setTickets] = useState([]);
   const [history, setHistory] = useState([]);
-  const [counter, setCounter] = useState(1); // contador global
+  const [counter, setCounter] = useState(1);
+
+  const [showHistory, setShowHistory] = useState(false); // control de vista
 
   const addTicket = (title, description) => {
     const newTicket = {
-      id: counter, // nunca se repite
+      id: counter,
       title,
       description,
     };
 
-    setTickets([...tickets, newTicket]);
-    setCounter(counter + 1); // incrementa SIEMPRE
+    setTickets((prev) => [...prev, newTicket]);
+    setCounter((prev) => prev + 1);
   };
 
   const completeTicket = (id) => {
     const ticket = tickets.find((t) => t.id === id);
-    const newTickets = tickets.filter((t) => t.id !== id);
+    if (!ticket) return;
 
-    setTickets(newTickets);
-    setHistory([...history, ticket]);
+    setTickets((prev) => prev.filter((t) => t.id !== id));
+    setHistory((prev) => [...prev, ticket]);
   };
 
   return (
@@ -33,6 +35,8 @@ export const TicketProvider = ({ children }) => {
         history,
         addTicket,
         completeTicket,
+        showHistory,
+        setShowHistory, // control desde UI
       }}
     >
       {children}
