@@ -1,4 +1,4 @@
-import { View, TextInput, TouchableOpacity, Text } from "react-native";
+import { View, TextInput, Text, TouchableOpacity } from "react-native";
 import { useState, useContext } from "react";
 import { TicketContext } from "../context/TicketContext";
 import { styles } from "../styles/styles";
@@ -10,11 +10,13 @@ export default function AddTicketScreen() {
   const [description, setDescription] = useState("");
 
   return (
-    <View style={{ marginBottom: 20 }}>
+    <View style={styles.container}>
+      <Text style={styles.header}> Crear ticket</Text>
+
       <TextInput
-        placeholder="Nombre del ticket"
+        placeholder="Título"
         placeholderTextColor="#aaa"
-        style={{ color: "#fff", marginBottom: 10 }}
+        style={styles.input}
         value={title}
         onChangeText={setTitle}
       />
@@ -22,7 +24,8 @@ export default function AddTicketScreen() {
       <TextInput
         placeholder="Descripción"
         placeholderTextColor="#aaa"
-        style={{ color: "#fff", marginBottom: 10 }}
+        style={[styles.input, { height: 100 }]}
+        multiline
         value={description}
         onChangeText={setDescription}
       />
@@ -35,7 +38,7 @@ export default function AddTicketScreen() {
           setDescription("");
         }}
       >
-        <Text style={styles.buttonText}>Agregar Ticket</Text>
+        <Text style={styles.buttonText}>Crear ticket</Text>
       </TouchableOpacity>
     </View>
   );
