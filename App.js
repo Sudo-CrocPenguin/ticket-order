@@ -1,22 +1,13 @@
-import { View, Text } from "react-native";
+import { NavigationContainer } from "@react-navigation/native";
 import { TicketProvider } from "./src/context/TicketContext";
-import AddTicketScreen from "./src/screens/AddTicketScreen";
-import TicketsScreen from "./src/screens/TicketsScreen";
-import HistoryScreen from "./src/screens/HistoryScreen";
-import { styles } from "./src/styles/styles";
+import Tabs from "./src/navigation/Tabs";
 
 export default function App() {
   return (
     <TicketProvider>
-      <View style={styles.container}>
-        <Text style={{ color: "#fff", fontSize: 24, marginBottom: 10 }}>
-           Ticket Order
-        </Text>
-
-        <AddTicketScreen />
-        <TicketsScreen />
-        <HistoryScreen />
-      </View>
+      <NavigationContainer>
+        <Tabs />
+      </NavigationContainer>
     </TicketProvider>
   );
 }
