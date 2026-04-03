@@ -17,7 +17,7 @@ export default function TicketsScreen() {
     <View style={styles.container}>
       <Text style={styles.header}> Tickets activos</Text>
 
-      {/* 🔍 BUSCADOR */}
+      {/*  BUSCADOR */}
       <TextInput
         placeholder="🔍 Buscar ticket..."
         placeholderTextColor="#aaa"
