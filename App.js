@@ -1,20 +1,22 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import { View, Text } from "react-native";
+import { TicketProvider } from "./src/context/TicketContext";
+import AddTicketScreen from "./src/screens/AddTicketScreen";
+import TicketsScreen from "./src/screens/TicketsScreen";
+import HistoryScreen from "./src/screens/HistoryScreen";
+import { styles } from "./src/styles/styles";
 
 export default function App() {
   return (
-    <View style={styles.container}>
-      <Text>Hola</Text>
-      <StatusBar style="auto" />
-    </View>
+    <TicketProvider>
+      <View style={styles.container}>
+        <Text style={{ color: "#fff", fontSize: 24, marginBottom: 10 }}>
+           Ticket Order
+        </Text>
+
+        <AddTicketScreen />
+        <TicketsScreen />
+        <HistoryScreen />
+      </View>
+    </TicketProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#5c8176',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
