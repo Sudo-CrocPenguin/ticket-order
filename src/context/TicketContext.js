@@ -1,64 +1,189 @@
-import { createContext, useState, useEffect } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { createContext, useCallback, useEffect, useMemo, useReducer } from "react";
+import { loadTicketState, saveTicketState } from "../services/ticketStorage";
+import {
+  completeTicket as buildCompletedTicket,
+  createTicket,
+  getTicketStats,
+  reopenTicket as buildReopenedTicket,
+  validateTicketInput,
+} from "../utils/ticketUtils";
 
-export const TicketContext = createContext();
+export const TicketContext = createContext(null);
+
+const initialState = {
+  tickets: [],
+  history: [],
+  counter: 1,
+  isReady: false,
+  storageError: "",
+};
+
+const moveById = (items, id) => {
+  const item = items.find((ticket) => ticket.id === id);
+  const remaining = items.filter((ticket) => ticket.id !== id);
+
+  return { item, remaining };
+};
+
+const ticketReducer = (state, action) => {
+  switch (action.type) {
+    case "LOAD_SUCCESS":
+      return {
+        ...state,
+        ...action.payload,
+        isReady: true,
+        storageError: "",
+      };
+
+    case "LOAD_ERROR":
+      return {
+        ...state,
+        isReady: true,
+        storageError: action.payload,
+      };
+
+    case "SAVE_ERROR":
+      return {
+        ...state,
+        storageError: action.payload,
+      };
+
+    case "ADD_TICKET":
+      return {
+        ...state,
+        tickets: [...state.tickets, action.payload],
+        counter: state.counter + 1,
+      };
+
+    case "COMPLETE_TICKET": {
+      const { item, remaining } = moveById(state.tickets, action.payload);
+
+      if (!item) return state;
+
+      return {
+        ...state,
+        tickets: remaining,
+        history: [buildCompletedTicket(item), ...state.history],
+      };
+    }
+
+    case "REOPEN_TICKET": {
+      const { item, remaining } = moveById(state.history, action.payload);
+
+      if (!item) return state;
+
+      return {
+        ...state,
+        tickets: [...state.tickets, buildReopenedTicket(item)],
+        history: remaining,
+      };
+    }
+
+    case "CLEAR_HISTORY":
+      return {
+        ...state,
+        history: [],
+      };
+
+    default:
+      return state;
+  }
+};
 
 export const TicketProvider = ({ children }) => {
-  const [tickets, setTickets] = useState([]);
-  const [history, setHistory] = useState([]);
-  const [counter, setCounter] = useState(1);
+  const [state, dispatch] = useReducer(ticketReducer, initialState);
 
-  const STORAGE_KEY = "tickets_app";
-
-  // CARGAR DATOS
   useEffect(() => {
-    loadData();
-  }, []);
+    let isMounted = true;
 
-  // GUARDAR AUTOMÁTICO
-  useEffect(() => {
-    saveData();
-  }, [tickets, history, counter]);
+    const hydrateTickets = async () => {
+      try {
+        const persistedState = await loadTicketState();
 
-  const saveData = async () => {
-    const data = { tickets, history, counter };
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  };
-
-  const loadData = async () => {
-    const data = await AsyncStorage.getItem(STORAGE_KEY);
-    if (data) {
-      const parsed = JSON.parse(data);
-      setTickets(parsed.tickets || []);
-      setHistory(parsed.history || []);
-      setCounter(parsed.counter || 1);
-    }
-  };
-
-  const addTicket = (title, description) => {
-    const newTicket = {
-      id: counter,
-      title,
-      description,
+        if (isMounted) {
+          dispatch({ type: "LOAD_SUCCESS", payload: persistedState });
+        }
+      } catch (error) {
+        if (isMounted) {
+          dispatch({
+            type: "LOAD_ERROR",
+            payload: "No se pudieron cargar los tickets guardados.",
+          });
+        }
+      }
     };
 
-    setTickets((prev) => [...prev, newTicket]);
-    setCounter((prev) => prev + 1);
-  };
+    hydrateTickets();
 
-  const completeTicket = (id) => {
-    const ticket = tickets.find((t) => t.id === id);
-    if (!ticket) return;
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
-    setTickets((prev) => prev.filter((t) => t.id !== id));
-    setHistory((prev) => [...prev, ticket]);
-  };
+  useEffect(() => {
+    if (!state.isReady) return;
 
-  return (
-    <TicketContext.Provider
-      value={{ tickets, history, addTicket, completeTicket }}
-    >
-      {children}
-    </TicketContext.Provider>
+    const persistTickets = async () => {
+      try {
+        await saveTicketState(state);
+      } catch (error) {
+        dispatch({
+          type: "SAVE_ERROR",
+          payload: "No se pudieron guardar los cambios en este dispositivo.",
+        });
+      }
+    };
+
+    persistTickets();
+  }, [state.tickets, state.history, state.counter, state.isReady]);
+
+  const addTicket = useCallback(
+    (title, description) => {
+      const validation = validateTicketInput(title, description);
+
+      if (!validation.ok) {
+        return validation;
+      }
+
+      const ticket = createTicket({
+        id: state.counter,
+        title: validation.value.title,
+        description: validation.value.description,
+      });
+
+      dispatch({ type: "ADD_TICKET", payload: ticket });
+
+      return { ok: true, ticket };
+    },
+    [state.counter]
   );
+
+  const completeTicket = useCallback((id) => {
+    dispatch({ type: "COMPLETE_TICKET", payload: id });
+  }, []);
+
+  const reopenTicket = useCallback((id) => {
+    dispatch({ type: "REOPEN_TICKET", payload: id });
+  }, []);
+
+  const clearHistory = useCallback(() => {
+    dispatch({ type: "CLEAR_HISTORY" });
+  }, []);
+
+  const value = useMemo(
+    () => ({
+      tickets: state.tickets,
+      history: state.history,
+      isReady: state.isReady,
+      storageError: state.storageError,
+      stats: getTicketStats(state.tickets, state.history),
+      addTicket,
+      completeTicket,
+      reopenTicket,
+      clearHistory,
+    }),
+    [state, addTicket, completeTicket, reopenTicket, clearHistory]
+  );
+
+  return <TicketContext.Provider value={value}>{children}</TicketContext.Provider>;
 };

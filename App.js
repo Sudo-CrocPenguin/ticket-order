@@ -1,13 +1,49 @@
 import { NavigationContainer } from "@react-navigation/native";
+import { StatusBar } from "expo-status-bar";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { TicketProvider } from "./src/context/TicketContext";
 import Tabs from "./src/navigation/Tabs";
+import { colors } from "./src/styles/colors";
+
+const navigationTheme = {
+  dark: true,
+  colors: {
+    primary: colors.primary,
+    background: colors.background,
+    card: colors.surface,
+    text: colors.text,
+    border: colors.border,
+    notification: colors.accent,
+  },
+  fonts: {
+    regular: {
+      fontFamily: "System",
+      fontWeight: "400",
+    },
+    medium: {
+      fontFamily: "System",
+      fontWeight: "500",
+    },
+    bold: {
+      fontFamily: "System",
+      fontWeight: "700",
+    },
+    heavy: {
+      fontFamily: "System",
+      fontWeight: "800",
+    },
+  },
+};
 
 export default function App() {
   return (
-    <TicketProvider>
-      <NavigationContainer>
-        <Tabs />
-      </NavigationContainer>
-    </TicketProvider>
+    <SafeAreaProvider>
+      <TicketProvider>
+        <NavigationContainer theme={navigationTheme}>
+          <StatusBar style="light" />
+          <Tabs />
+        </NavigationContainer>
+      </TicketProvider>
+    </SafeAreaProvider>
   );
 }
