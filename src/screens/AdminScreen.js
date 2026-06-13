@@ -20,14 +20,20 @@ export default function AdminScreen() {
     createUser,
     listUsers,
     storageError,
+    updateApplication,
+    updateUser,
   } = useTickets();
   const [users, setUsers] = useState([]);
+  const [selectedApplicationId, setSelectedApplicationId] = useState("");
+  const [selectedUserId, setSelectedUserId] = useState("");
   const [appName, setAppName] = useState("");
   const [appDescription, setAppDescription] = useState("");
+  const [appIsActive, setAppIsActive] = useState(true);
   const [userName, setUserName] = useState("");
   const [userEmail, setUserEmail] = useState("");
   const [userPassword, setUserPassword] = useState("");
   const [userRole, setUserRole] = useState("developer");
+  const [userIsActive, setUserIsActive] = useState(true);
   const [feedback, setFeedback] = useState({ type: "", message: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -40,14 +46,54 @@ export default function AdminScreen() {
     loadUsers();
   }, []);
 
+  const selectApplication = (application) => {
+    setSelectedApplicationId(application.id);
+    setAppName(application.name);
+    setAppDescription(application.description || "");
+    setAppIsActive(application.isActive !== false);
+    setFeedback({ type: "", message: "" });
+  };
+
+  const resetApplicationForm = () => {
+    setSelectedApplicationId("");
+    setAppName("");
+    setAppDescription("");
+    setAppIsActive(true);
+  };
+
+  const selectUser = (item) => {
+    setSelectedUserId(item.id);
+    setUserName(item.name);
+    setUserEmail(item.email);
+    setUserPassword("");
+    setUserRole(item.role);
+    setUserIsActive(item.isActive !== false);
+    setFeedback({ type: "", message: "" });
+  };
+
+  const resetUserForm = () => {
+    setSelectedUserId("");
+    setUserName("");
+    setUserEmail("");
+    setUserPassword("");
+    setUserRole("developer");
+    setUserIsActive(true);
+  };
+
   const submitApplication = async () => {
     setIsSubmitting(true);
     setFeedback({ type: "", message: "" });
 
-    const result = await createApplication({
-      name: appName,
-      description: appDescription,
-    });
+    const result = selectedApplicationId
+      ? await updateApplication(selectedApplicationId, {
+          name: appName,
+          description: appDescription,
+          isActive: appIsActive,
+        })
+      : await createApplication({
+          name: appName,
+          description: appDescription,
+        });
 
     setIsSubmitting(false);
 
@@ -56,21 +102,30 @@ export default function AdminScreen() {
       return;
     }
 
-    setAppName("");
-    setAppDescription("");
-    setFeedback({ type: "success", message: "Aplicacion creada." });
+    resetApplicationForm();
+    setFeedback({
+      type: "success",
+      message: selectedApplicationId ? "Aplicacion actualizada." : "Aplicacion creada.",
+    });
   };
 
   const submitUser = async () => {
     setIsSubmitting(true);
     setFeedback({ type: "", message: "" });
 
-    const result = await createUser({
-      name: userName,
-      email: userEmail,
-      password: userPassword,
-      role: userRole,
-    });
+    const result = selectedUserId
+      ? await updateUser(selectedUserId, {
+          name: userName,
+          email: userEmail,
+          role: userRole,
+          isActive: userIsActive,
+        })
+      : await createUser({
+          name: userName,
+          email: userEmail,
+          password: userPassword,
+          role: userRole,
+        });
 
     setIsSubmitting(false);
 
@@ -79,12 +134,17 @@ export default function AdminScreen() {
       return;
     }
 
-    setUserName("");
-    setUserEmail("");
-    setUserPassword("");
-    setUserRole("developer");
-    setUsers((currentUsers) => [...currentUsers, result.user]);
-    setFeedback({ type: "success", message: "Usuario creado." });
+    resetUserForm();
+    setUsers((currentUsers) => {
+      const exists = currentUsers.some((item) => item.id === result.user.id);
+      return exists
+        ? currentUsers.map((item) => (item.id === result.user.id ? result.user : item))
+        : [...currentUsers, result.user];
+    });
+    setFeedback({
+      type: "success",
+      message: selectedUserId ? "Usuario actualizado." : "Usuario creado.",
+    });
   };
 
   return (
@@ -114,19 +174,30 @@ export default function AdminScreen() {
           <View style={styles.adminPanel}>
             <Text style={styles.sectionTitle}>Aplicaciones</Text>
             {applications.map((application) => (
-              <View key={application.id} style={styles.inlineListItem}>
+              <Pressable
+                accessibilityRole="button"
+                key={application.id}
+                onPress={() => selectApplication(application)}
+                style={[
+                  styles.inlineListItem,
+                  selectedApplicationId === application.id && styles.inlineListItemActive,
+                ]}
+              >
                 <Ionicons name="apps-outline" size={18} color={colors.primary} />
                 <View style={styles.inlineListText}>
                   <Text style={styles.inlineListTitle}>{application.name}</Text>
                   <Text style={styles.metaText}>
+                    {application.isActive === false ? "Inactiva" : "Activa"} ·{" "}
                     {application.description || "Sin descripcion"}
                   </Text>
                 </View>
-              </View>
+              </Pressable>
             ))}
 
             <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>Nueva aplicacion</Text>
+              <Text style={styles.fieldLabel}>
+                {selectedApplicationId ? "Editar aplicacion" : "Nueva aplicacion"}
+              </Text>
               <TextInput
                 onChangeText={setAppName}
                 placeholder="Ej. Portal clientes"
@@ -146,6 +217,44 @@ export default function AdminScreen() {
                 value={appDescription}
               />
             </View>
+            {selectedApplicationId ? (
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Estado</Text>
+                <View style={styles.segmentedRow}>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => setAppIsActive(true)}
+                    style={[styles.segmentButton, appIsActive && styles.segmentButtonActive]}
+                  >
+                    <Text
+                      style={[
+                        styles.segmentButtonText,
+                        appIsActive && styles.segmentButtonTextActive,
+                      ]}
+                    >
+                      Activa
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => setAppIsActive(false)}
+                    style={[
+                      styles.segmentButton,
+                      !appIsActive && styles.segmentButtonActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.segmentButtonText,
+                        !appIsActive && styles.segmentButtonTextActive,
+                      ]}
+                    >
+                      Inactiva
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : null}
             <Pressable
               accessibilityRole="button"
               disabled={!appName.trim() || isSubmitting}
@@ -157,22 +266,45 @@ export default function AdminScreen() {
               ]}
             >
               <Ionicons name="add-circle-outline" size={20} color={colors.black} />
-              <Text style={styles.buttonText}>Crear aplicacion</Text>
+              <Text style={styles.buttonText}>
+                {selectedApplicationId ? "Guardar aplicacion" : "Crear aplicacion"}
+              </Text>
             </Pressable>
+            {selectedApplicationId ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={resetApplicationForm}
+                style={[styles.button, styles.secondaryButton, { marginTop: 8 }]}
+              >
+                <Ionicons name="close-outline" size={20} color={colors.text} />
+                <Text style={[styles.buttonText, styles.secondaryButtonText]}>
+                  Cancelar edicion
+                </Text>
+              </Pressable>
+            ) : null}
           </View>
 
           <View style={styles.adminPanel}>
             <Text style={styles.sectionTitle}>Usuarios</Text>
             {users.map((item) => (
-              <View key={item.id} style={styles.inlineListItem}>
+              <Pressable
+                accessibilityRole="button"
+                key={item.id}
+                onPress={() => selectUser(item)}
+                style={[
+                  styles.inlineListItem,
+                  selectedUserId === item.id && styles.inlineListItemActive,
+                ]}
+              >
                 <Ionicons name="person-circle-outline" size={20} color={colors.primary} />
                 <View style={styles.inlineListText}>
                   <Text style={styles.inlineListTitle}>{item.name}</Text>
                   <Text style={styles.metaText}>
-                    {item.email} · {item.role}
+                    {item.email} · {item.role} ·{" "}
+                    {item.isActive === false ? "inactivo" : "activo"}
                   </Text>
                 </View>
-              </View>
+              </Pressable>
             ))}
 
             <View style={styles.fieldGroup}>
@@ -201,10 +333,15 @@ export default function AdminScreen() {
               <Text style={styles.fieldLabel}>Contrasena inicial</Text>
               <TextInput
                 onChangeText={setUserPassword}
-                placeholder="Minimo 8 caracteres"
+                placeholder={
+                  selectedUserId
+                    ? "No se cambia desde esta vista"
+                    : "Minimo 8 caracteres"
+                }
                 placeholderTextColor={colors.textDim}
                 secureTextEntry
-                style={styles.input}
+                editable={!selectedUserId}
+                style={[styles.input, selectedUserId && styles.inputDisabled]}
                 value={userPassword}
               />
             </View>
@@ -233,25 +370,85 @@ export default function AdminScreen() {
                 })}
               </View>
             </View>
+            {selectedUserId ? (
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Estado</Text>
+                <View style={styles.segmentedRow}>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => setUserIsActive(true)}
+                    style={[styles.segmentButton, userIsActive && styles.segmentButtonActive]}
+                  >
+                    <Text
+                      style={[
+                        styles.segmentButtonText,
+                        userIsActive && styles.segmentButtonTextActive,
+                      ]}
+                    >
+                      Activo
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => setUserIsActive(false)}
+                    style={[
+                      styles.segmentButton,
+                      !userIsActive && styles.segmentButtonActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.segmentButtonText,
+                        !userIsActive && styles.segmentButtonTextActive,
+                      ]}
+                    >
+                      Inactivo
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : null}
             <Pressable
               accessibilityRole="button"
-              disabled={!userName.trim() || !userEmail.trim() || !userPassword || isSubmitting}
+              disabled={
+                !userName.trim() ||
+                !userEmail.trim() ||
+                (!selectedUserId && !userPassword) ||
+                isSubmitting
+              }
               onPress={submitUser}
               style={({ pressed }) => [
                 styles.button,
-                (!userName.trim() || !userEmail.trim() || !userPassword || isSubmitting) &&
+                (!userName.trim() ||
+                  !userEmail.trim() ||
+                  (!selectedUserId && !userPassword) ||
+                  isSubmitting) &&
                   styles.buttonDisabled,
                 pressed &&
                   userName.trim() &&
                   userEmail.trim() &&
-                  userPassword &&
+                  (selectedUserId || userPassword) &&
                   !isSubmitting &&
                   styles.buttonPressed,
               ]}
             >
               <Ionicons name="person-add-outline" size={20} color={colors.black} />
-              <Text style={styles.buttonText}>Crear usuario</Text>
+              <Text style={styles.buttonText}>
+                {selectedUserId ? "Guardar usuario" : "Crear usuario"}
+              </Text>
             </Pressable>
+            {selectedUserId ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={resetUserForm}
+                style={[styles.button, styles.secondaryButton, { marginTop: 8 }]}
+              >
+                <Ionicons name="close-outline" size={20} color={colors.text} />
+                <Text style={[styles.buttonText, styles.secondaryButtonText]}>
+                  Cancelar edicion
+                </Text>
+              </Pressable>
+            ) : null}
           </View>
         </View>
       </ScrollView>

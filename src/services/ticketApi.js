@@ -24,9 +24,15 @@ export const createTicketRequest = (payload) => apiClient.post("/tickets", paylo
 export const createApplicationRequest = (payload) =>
   apiClient.post("/applications", payload);
 
+export const updateApplicationRequest = (applicationId, payload) =>
+  apiClient.patch(`/applications/${applicationId}`, payload);
+
 export const listUsersRequest = () => apiClient.get("/users");
 
 export const createUserRequest = (payload) => apiClient.post("/users", payload);
+
+export const updateUserRequest = (userId, payload) =>
+  apiClient.patch(`/users/${userId}`, payload);
 
 export const changeTicketStatusRequest = (ticketId, payload) =>
   apiClient.patch(`/tickets/${ticketId}/status`, payload);

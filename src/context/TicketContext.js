@@ -12,6 +12,8 @@ import {
   loadWorkspaceRequest,
   loginRequest,
   registerCompanyRequest,
+  updateApplicationRequest,
+  updateUserRequest,
 } from "../services/ticketApi";
 import {
   clearSession,
@@ -337,6 +339,21 @@ export const TicketProvider = ({ children }) => {
     [refreshWorkspace]
   );
 
+  const updateApplication = useCallback(
+    async (applicationId, payload) => {
+      try {
+        const result = await updateApplicationRequest(applicationId, payload);
+        await refreshWorkspace();
+        return { ok: true, application: result.application };
+      } catch (error) {
+        const message = error.message || "No se pudo actualizar la aplicacion.";
+        dispatch({ type: "SET_ERROR", payload: message });
+        return { ok: false, message };
+      }
+    },
+    [refreshWorkspace]
+  );
+
   const listUsers = useCallback(async () => {
     try {
       const result = await listUsersRequest();
@@ -354,6 +371,17 @@ export const TicketProvider = ({ children }) => {
       return { ok: true, user: result.user };
     } catch (error) {
       const message = error.message || "No se pudo crear el usuario.";
+      dispatch({ type: "SET_ERROR", payload: message });
+      return { ok: false, message };
+    }
+  }, []);
+
+  const updateUser = useCallback(async (userId, payload) => {
+    try {
+      const result = await updateUserRequest(userId, payload);
+      return { ok: true, user: result.user };
+    } catch (error) {
+      const message = error.message || "No se pudo actualizar el usuario.";
       dispatch({ type: "SET_ERROR", payload: message });
       return { ok: false, message };
     }
@@ -473,8 +501,10 @@ export const TicketProvider = ({ children }) => {
       refreshWorkspace,
       setSelectedApplicationId,
       createApplication,
+      updateApplication,
       listUsers,
       createUser,
+      updateUser,
       addTicket,
       changeTicketStatus,
       completeTicket,
@@ -499,6 +529,8 @@ export const TicketProvider = ({ children }) => {
       registerCompany,
       reopenTicket,
       setSelectedApplicationId,
+      updateApplication,
+      updateUser,
       state,
     ]
   );

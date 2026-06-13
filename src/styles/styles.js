@@ -141,6 +141,10 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
+  inputDisabled: {
+    backgroundColor: colors.surfaceElevated,
+    color: colors.textDim,
+  },
   textArea: {
     minHeight: 132,
     paddingTop: 12,
@@ -419,6 +423,13 @@ export const styles = StyleSheet.create({
     gap: 8,
     paddingBottom: 10,
     paddingTop: 10,
+  },
+  inlineListItemActive: {
+    backgroundColor: colors.surfaceElevated,
+    borderColor: colors.borderStrong,
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 8,
   },
   inlineListText: {
     flex: 1,
