@@ -103,3 +103,45 @@ test("registra empresa y permite administrar usuarios y aplicaciones", async () 
   assert.equal(developer.email, "dev@nueva.local");
   assert.equal(users.length, 2);
 });
+
+test("actualiza aplicaciones y protege el ultimo administrador activo", async () => {
+  const { authService, companyService } = await createServices();
+  const login = await authService.login({
+    email: "admin@test.local",
+    password: "Admin123!",
+  });
+  const admin = await authService.resolveUserFromToken(login.token);
+  const workspace = await companyService.getCurrentCompany(admin);
+  const application = workspace.applications[0];
+
+  const updatedApplication = await companyService.updateApplication(admin, application.id, {
+    name: "App Renombrada",
+    description: "Descripcion ajustada.",
+    isActive: false,
+  });
+
+  assert.equal(updatedApplication.name, "App Renombrada");
+  assert.equal(updatedApplication.isActive, false);
+
+  await assert.rejects(
+    () =>
+      companyService.updateUser(admin, admin.id, {
+        isActive: false,
+      }),
+    /administrador activo/
+  );
+
+  const secondAdmin = await companyService.createUser(admin, {
+    name: "Admin Dos",
+    email: "admin2@test.local",
+    password: "Admin123!",
+    role: "admin",
+  });
+  const disabledAdmin = await companyService.updateUser(admin, admin.id, {
+    name: "Admin Test Inactivo",
+    isActive: false,
+  });
+
+  assert.equal(secondAdmin.role, "admin");
+  assert.equal(disabledAdmin.isActive, false);
+});

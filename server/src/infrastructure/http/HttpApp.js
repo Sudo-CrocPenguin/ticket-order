@@ -154,6 +154,18 @@ class HttpApp {
       return;
     }
 
+    const applicationMatch = pathname.match(/^\/api\/applications\/([^/]+)$/);
+    if (request.method === "PATCH" && applicationMatch) {
+      const body = await readJsonBody(request);
+      const application = await this.companyService.updateApplication(
+        user,
+        applicationMatch[1],
+        body
+      );
+      sendJson(response, 200, { application });
+      return;
+    }
+
     if (request.method === "GET" && pathname === "/api/users") {
       const users = await this.companyService.listUsers(user);
       sendJson(response, 200, { users });
@@ -164,6 +176,14 @@ class HttpApp {
       const body = await readJsonBody(request);
       const createdUser = await this.companyService.createUser(user, body);
       sendJson(response, 201, { user: createdUser });
+      return;
+    }
+
+    const userMatch = pathname.match(/^\/api\/users\/([^/]+)$/);
+    if (request.method === "PATCH" && userMatch) {
+      const body = await readJsonBody(request);
+      const updatedUser = await this.companyService.updateUser(user, userMatch[1], body);
+      sendJson(response, 200, { user: updatedUser });
       return;
     }
 

@@ -56,6 +56,28 @@ class CompanyService {
     }
   }
 
+  ensureUniqueEmailForUpdate(state, email, userId) {
+    if (state.users.some((user) => user.email === email && user.id !== userId)) {
+      throw new DomainError("Ya existe un usuario con ese correo.");
+    }
+  }
+
+  ensureActiveAdminRemains(state, companyId, targetUserId, nextRole, nextIsActive) {
+    const activeAdmins = state.users.filter(
+      (item) =>
+        item.companyId === companyId &&
+        item.id !== targetUserId &&
+        item.role === UserRole.ADMIN &&
+        item.isActive !== false
+    );
+    const targetWillRemainAdmin =
+      nextRole === UserRole.ADMIN && nextIsActive !== false;
+
+    if (!targetWillRemainAdmin && activeAdmins.length === 0) {
+      throw new DomainError("La empresa debe conservar al menos un administrador activo.");
+    }
+  }
+
   async registerCompany(payload) {
     return this.database.update((state) => {
       const companySlug = slugify(payload.companySlug || payload.companyName);
@@ -139,6 +161,44 @@ class CompanyService {
     });
   }
 
+  async updateApplication(user, applicationId, payload) {
+    this.ensureCompanyAdmin(user);
+
+    return this.database.update((state) => {
+      const index = state.applications.findIndex(
+        (application) =>
+          application.id === applicationId && application.companyId === user.companyId
+      );
+
+      if (index === -1) {
+        throw new DomainError("La aplicacion solicitada no existe.");
+      }
+
+      const duplicatedName = state.applications.find(
+        (application) =>
+          application.companyId === user.companyId &&
+          application.id !== applicationId &&
+          application.name.trim().toLowerCase() ===
+            String(payload.name || state.applications[index].name)
+              .trim()
+              .toLowerCase()
+      );
+
+      if (duplicatedName) {
+        throw new DomainError("Ya existe una aplicacion con ese nombre.");
+      }
+
+      const application = Application.fromPersistence(state.applications[index]).update({
+        name: payload.name,
+        description: payload.description,
+        isActive: payload.isActive,
+      });
+
+      state.applications[index] = application.toJSON();
+      return state.applications[index];
+    });
+  }
+
   async listUsers(user) {
     this.ensureCompanyAdmin(user);
 
@@ -170,6 +230,46 @@ class CompanyService {
 
       state.users.push(userEntity.toJSON());
       return userEntity.toPublicJSON();
+    });
+  }
+
+  async updateUser(user, userId, payload) {
+    this.ensureCompanyAdmin(user);
+
+    return this.database.update((state) => {
+      const index = state.users.findIndex(
+        (item) => item.id === userId && item.companyId === user.companyId
+      );
+
+      if (index === -1) {
+        throw new DomainError("El usuario solicitado no existe.");
+      }
+
+      const current = User.fromPersistence(state.users[index]);
+      const nextEmail =
+        payload.email !== undefined ? normalizeEmail(payload.email) : current.email;
+      const nextRole = payload.role !== undefined ? payload.role : current.role;
+      const nextIsActive =
+        payload.isActive !== undefined ? Boolean(payload.isActive) : current.isActive;
+
+      this.ensureUniqueEmailForUpdate(state, nextEmail, current.id);
+      this.ensureActiveAdminRemains(
+        state,
+        user.companyId,
+        current.id,
+        nextRole,
+        nextIsActive
+      );
+
+      const updatedUser = current.updateProfile({
+        name: payload.name,
+        email: nextEmail,
+        role: nextRole,
+        isActive: nextIsActive,
+      });
+
+      state.users[index] = updatedUser.toJSON();
+      return updatedUser.toPublicJSON();
     });
   }
 }

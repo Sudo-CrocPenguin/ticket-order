@@ -15,6 +15,7 @@ class AuthService {
 
     if (
       !userRecord ||
+      userRecord.isActive === false ||
       !this.passwordHasher.verify(
         password,
         userRecord.passwordHash,
@@ -42,7 +43,7 @@ class AuthService {
     const state = await this.database.read();
     const userRecord = state.users.find((user) => user.id === payload.sub);
 
-    if (!userRecord) {
+    if (!userRecord || userRecord.isActive === false) {
       throw new AuthorizationError("La sesion no corresponde a un usuario activo.");
     }
 
