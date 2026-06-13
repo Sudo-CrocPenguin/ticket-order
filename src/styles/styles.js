@@ -146,6 +146,11 @@ export const styles = StyleSheet.create({
     paddingTop: 12,
     textAlignVertical: "top",
   },
+  smallTextArea: {
+    minHeight: 84,
+    paddingTop: 12,
+    textAlignVertical: "top",
+  },
   searchRow: {
     alignItems: "center",
     backgroundColor: colors.surface,
@@ -390,5 +395,37 @@ export const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 4,
     marginTop: 8,
+  },
+  adminGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 16,
+    paddingBottom: 28,
+  },
+  adminPanel: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    flex: 1,
+    minWidth: 280,
+    padding: 14,
+  },
+  inlineListItem: {
+    alignItems: "flex-start",
+    borderBottomColor: colors.border,
+    borderBottomWidth: 1,
+    flexDirection: "row",
+    gap: 8,
+    paddingBottom: 10,
+    paddingTop: 10,
+  },
+  inlineListText: {
+    flex: 1,
+  },
+  inlineListTitle: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: "800",
   },
 });

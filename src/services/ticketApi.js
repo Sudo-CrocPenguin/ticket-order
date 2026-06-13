@@ -3,6 +3,9 @@ import { apiClient } from "./apiClient";
 export const loginRequest = (credentials) =>
   apiClient.post("/auth/login", credentials);
 
+export const registerCompanyRequest = (payload) =>
+  apiClient.post("/companies/register", payload);
+
 export const loadWorkspaceRequest = async () => {
   const [companyPayload, ticketsPayload] = await Promise.all([
     apiClient.get("/companies/current"),
@@ -17,6 +20,13 @@ export const loadWorkspaceRequest = async () => {
 };
 
 export const createTicketRequest = (payload) => apiClient.post("/tickets", payload);
+
+export const createApplicationRequest = (payload) =>
+  apiClient.post("/applications", payload);
+
+export const listUsersRequest = () => apiClient.get("/users");
+
+export const createUserRequest = (payload) => apiClient.post("/users", payload);
 
 export const changeTicketStatusRequest = (ticketId, payload) =>
   apiClient.patch(`/tickets/${ticketId}/status`, payload);

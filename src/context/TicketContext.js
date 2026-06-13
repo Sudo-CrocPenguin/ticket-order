@@ -5,9 +5,13 @@ import {
   addTicketCommentRequest,
   addTicketEvidenceRequest,
   changeTicketStatusRequest,
+  createApplicationRequest,
   createTicketRequest,
+  createUserRequest,
+  listUsersRequest,
   loadWorkspaceRequest,
   loginRequest,
+  registerCompanyRequest,
 } from "../services/ticketApi";
 import {
   clearSession,
@@ -27,6 +31,7 @@ const initialState = {
   applications: [],
   selectedApplicationId: "",
   tickets: [],
+  users: [],
   isReady: false,
   isSyncing: false,
   storageError: "",
@@ -263,6 +268,33 @@ export const TicketProvider = ({ children }) => {
     [loadWorkspace]
   );
 
+  const registerCompany = useCallback(
+    async (payload) => {
+      dispatch({ type: "SET_SYNCING", payload: true });
+
+      try {
+        const registration = await registerCompanyRequest(payload);
+        const loginResult = await login(payload.adminEmail, payload.adminPassword);
+
+        if (!loginResult.ok) {
+          return loginResult;
+        }
+
+        return {
+          ok: true,
+          registration,
+        };
+      } catch (error) {
+        const message = error.message || "No se pudo registrar la empresa.";
+        dispatch({ type: "SET_ERROR", payload: message });
+        return { ok: false, message };
+      } finally {
+        dispatch({ type: "SET_SYNCING", payload: false });
+      }
+    },
+    [login]
+  );
+
   const logout = useCallback(async () => {
     await clearSession();
     apiClient.setToken("");
@@ -288,6 +320,43 @@ export const TicketProvider = ({ children }) => {
 
   const setSelectedApplicationId = useCallback((applicationId) => {
     dispatch({ type: "SET_SELECTED_APPLICATION", payload: applicationId });
+  }, []);
+
+  const createApplication = useCallback(
+    async (payload) => {
+      try {
+        const result = await createApplicationRequest(payload);
+        await refreshWorkspace();
+        return { ok: true, application: result.application };
+      } catch (error) {
+        const message = error.message || "No se pudo crear la aplicacion.";
+        dispatch({ type: "SET_ERROR", payload: message });
+        return { ok: false, message };
+      }
+    },
+    [refreshWorkspace]
+  );
+
+  const listUsers = useCallback(async () => {
+    try {
+      const result = await listUsersRequest();
+      return { ok: true, users: result.users };
+    } catch (error) {
+      const message = error.message || "No se pudieron cargar los usuarios.";
+      dispatch({ type: "SET_ERROR", payload: message });
+      return { ok: false, message, users: [] };
+    }
+  }, []);
+
+  const createUser = useCallback(async (payload) => {
+    try {
+      const result = await createUserRequest(payload);
+      return { ok: true, user: result.user };
+    } catch (error) {
+      const message = error.message || "No se pudo crear el usuario.";
+      dispatch({ type: "SET_ERROR", payload: message });
+      return { ok: false, message };
+    }
   }, []);
 
   const addTicket = useCallback(
@@ -399,9 +468,13 @@ export const TicketProvider = ({ children }) => {
       storageError: state.storageError,
       stats: getTicketStats(activeTickets, history, state.tickets),
       login,
+      registerCompany,
       logout,
       refreshWorkspace,
       setSelectedApplicationId,
+      createApplication,
+      listUsers,
+      createUser,
       addTicket,
       changeTicketStatus,
       completeTicket,
@@ -416,10 +489,14 @@ export const TicketProvider = ({ children }) => {
       attachEvidence,
       changeTicketStatus,
       completeTicket,
+      createApplication,
+      createUser,
       history,
       login,
+      listUsers,
       logout,
       refreshWorkspace,
+      registerCompany,
       reopenTicket,
       setSelectedApplicationId,
       state,

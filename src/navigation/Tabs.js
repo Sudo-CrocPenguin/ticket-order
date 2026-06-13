@@ -4,11 +4,16 @@ import { Ionicons } from "@expo/vector-icons";
 import TicketsScreen from "../screens/TicketsScreen";
 import AddTicketScreen from "../screens/AddTicketScreen";
 import HistoryScreen from "../screens/HistoryScreen";
+import AdminScreen from "../screens/AdminScreen";
+import { useTickets } from "../hooks/useTickets";
 import { colors } from "../styles/colors";
 
 const Tab = createBottomTabNavigator();
 
 export default function Tabs() {
+  const { user } = useTickets();
+  const canManageCompany = user?.role === "admin";
+
   return (
     <Tab.Navigator
       screenOptions={{
@@ -57,6 +62,18 @@ export default function Tabs() {
           ),
         }}
       />
+
+      {canManageCompany ? (
+        <Tab.Screen
+          name="Admin"
+          component={AdminScreen}
+          options={{
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="settings-outline" size={size} color={color} />
+            ),
+          }}
+        />
+      ) : null}
     </Tab.Navigator>
   );
 }
