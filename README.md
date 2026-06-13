@@ -1,111 +1,161 @@
 # Ticket Order
 
-Aplicacion movil en React Native/Expo para gestionar tickets personales: crear pendientes, completarlos, consultarlos en historial y reabrirlos si vuelven a estar activos. La app funciona sin servidor y persiste los datos localmente en el dispositivo.
+Ticket Order es una aplicacion cliente-servidor para equipos de desarrollo que
+necesitan registrar bugs, adjuntar evidencias y dar seguimiento al estado de
+cada problema por empresa y por aplicacion.
+
+El proyecto nacio como una app Expo con persistencia local. Ahora esta preparado
+como una aplicacion completa:
+
+- Cliente Expo para mobile y web.
+- API Node.js modular.
+- Persistencia local del servidor en JSON.
+- Evidencias locales en disco.
+- Cache local del cliente para tolerar fallos de conexion.
+- Despliegue web + API en Hostinger VPS con Docker y Nginx.
+
+## Para que sirve
+
+Sirve para centralizar tickets tecnicos de una empresa de desarrollo. Un equipo
+puede crear tickets asociados a una aplicacion, adjuntar imagenes o documentos
+como evidencia, y mover el ticket por estos estados:
+
+- `pending`: pendiente.
+- `in_progress`: en progreso.
+- `completed`: completado.
+
+Cada cambio de estado queda registrado en el historial del ticket.
 
 ## Stack
 
-- Expo SDK 54
-- React Native 0.81
-- React 19
-- React Navigation 7
-- AsyncStorage para persistencia local
-- Expo Vector Icons para iconografia
+- Expo SDK 54.
+- React Native 0.81.
+- React 19.
+- React Navigation 7.
+- AsyncStorage para sesion/cache del cliente.
+- Expo Document Picker y File System para evidencias.
+- Node.js HTTP API sin framework externo.
+- Persistencia local JSON en el servidor.
+- Docker + Nginx para despliegue Hostinger.
 
-## Funcionalidades
-
-- Crear tickets con titulo obligatorio y descripcion opcional.
-- Validacion de longitud y limpieza de espacios antes de guardar.
-- Listado de tickets activos con busqueda por ID, titulo, descripcion o estado.
-- Completar tickets y moverlos al historial con fecha de cierre.
-- Reabrir tickets desde el historial.
-- Limpiar historial con confirmacion.
-- Estados vacios, feedback de carga y avisos de error de almacenamiento.
-- Migracion compatible desde la clave antigua de almacenamiento (`tickets_app`).
-
-## Arquitectura
+## Estructura
 
 ```text
 App.js
-src/
-  components/        Componentes reutilizables de UI
-  context/           Estado global y acciones de tickets
-  hooks/             Hooks de acceso al dominio
-  navigation/        Navegacion por tabs
-  screens/           Pantallas de producto
-  services/          Adaptadores externos, como AsyncStorage
-  styles/            Tokens visuales y estilos compartidos
-  utils/             Reglas puras del dominio de tickets
+src/                    Cliente Expo mobile/web
+  components/           UI reutilizable
+  context/              Estado cliente-servidor
+  navigation/           Login gate y tabs
+  screens/              Pantallas de producto
+  services/             API, sesion, cache y evidencias
+  styles/               Tokens visuales
+  utils/                Formato, busqueda y etiquetas UI
+server/                 API Node.js
+  src/application/      Casos de uso
+  src/config/           Entorno y carga .env
+  src/infrastructure/   HTTP, seguridad, persistencia y archivos
+shared/domain/          Entidades y reglas DDD/POO
+deploy/hostinger/       Docker, Nginx y guia VPS
+docs/                   Arquitectura y API
 ```
 
-### Flujo de datos
+## Como funciona
 
-1. `TicketProvider` hidrata el estado desde `src/services/ticketStorage.js`.
-2. El estado se normaliza con `normalizeTicketState` para soportar datos antiguos o incompletos.
-3. Las pantallas consumen el dominio con `useTickets`.
-4. Las acciones (`addTicket`, `completeTicket`, `reopenTicket`, `clearHistory`) pasan por un reducer.
-5. Cada cambio se persiste en AsyncStorage cuando la hidratacion inicial ya termino.
+1. El servidor arranca, lee `.env` y crea datos semilla si no existe estado.
+2. El cliente inicia sesion contra `POST /api/auth/login`.
+3. La API emite un token firmado y el cliente lo guarda en AsyncStorage.
+4. El cliente carga empresa, aplicaciones y tickets desde la API.
+5. Las acciones de crear ticket, cambiar estado, comentar o adjuntar evidencia
+   se ejecutan en el servidor.
+6. El cliente guarda una cache local de workspace para mostrar la ultima copia
+   disponible si falla la conexion.
+7. El servidor guarda datos en `data/` y evidencias en `uploads/`; ambas rutas
+   estan ignoradas por git.
 
-### Reglas de dominio
+## Desarrollo local
 
-Las reglas principales viven en `src/utils/ticketUtils.js` para que sean faciles de probar y reutilizar:
-
-- `validateTicketInput`: valida titulo y descripcion.
-- `createTicket`: crea el modelo completo con fechas y estado.
-- `completeTicket`: marca un ticket como cerrado.
-- `reopenTicket`: devuelve un ticket al flujo activo.
-- `searchTickets`: busqueda consistente para activos e historial.
-- `normalizeTicketState`: protege contra datos persistidos incompletos.
-
-## Ejecutar en local
-
-Requisitos:
-
-- Node.js 18 o superior
-- npm
-- Expo Go si vas a probar en un telefono
+Instala dependencias:
 
 ```bash
 npm install
+```
+
+Crea `.env` desde el ejemplo:
+
+```bash
+cp .env.example .env
+```
+
+Levanta la API:
+
+```bash
+npm run api
+```
+
+Levanta el cliente:
+
+```bash
 npm start
 ```
 
-Comandos disponibles:
+Para web:
 
 ```bash
-npm start      # abre Expo
-npm run android
-npm run ios
 npm run web
 ```
 
-## Persistencia
+En un dispositivo fisico, cambia `EXPO_PUBLIC_API_URL` por la IP LAN de tu
+maquina, por ejemplo `http://192.168.1.10:4000/api`.
 
-La app guarda este estado local:
+## Comandos
 
-```js
-{
-  tickets: [],
-  history: [],
-  counter: 1
-}
+```bash
+npm run api        # API Node local
+npm start          # Expo
+npm run android    # Expo Android
+npm run ios        # Expo iOS
+npm run web        # Expo Web dev
+npm run build:web  # export web estatica a dist/
+npm test           # pruebas Node del dominio y servicios
 ```
 
-La clave actual es `@ticket_order/state`. Si existe informacion guardada con la clave anterior `tickets_app`, la app la lee, la normaliza y luego continua guardando con la clave nueva.
+## Seguridad de secretos
 
-## Criterios de calidad usados
+No se versionan `.env`, datos locales, uploads ni builds. Revisa:
 
-- Estado centralizado con reducer para que las transiciones sean explicitas.
-- Persistencia aislada en un servicio, sin llamadas a AsyncStorage dentro de pantallas.
-- Componentes compartidos para tarjetas, buscador, metricas y estados vacios.
-- Colores centralizados y estilos sin valores sueltos en pantallas.
-- UI preparada para listas largas con `FlatList`.
-- Acciones destructivas con confirmacion.
-- Feedback visible para carga, errores y creacion exitosa.
+- `.gitignore`
+- `.env.example`
+- `deploy/hostinger/.env.example`
 
-## Proximos pasos recomendados
+En produccion cambia obligatoriamente:
 
-- Agregar pruebas unitarias para `ticketUtils`.
-- Agregar ESLint/Prettier para estandarizar formato.
-- Permitir prioridades o fechas limite si el flujo de trabajo lo necesita.
-- Exportar historial a CSV.
-- Agregar sincronizacion opcional cuando exista backend.
+- `JWT_SECRET`
+- `SEED_ADMIN_PASSWORD`
+- `CORS_ORIGIN`
+
+## Documentacion adicional
+
+- [Arquitectura](docs/ARCHITECTURE.md)
+- [API REST](docs/API.md)
+- [Despliegue Hostinger](deploy/hostinger/README.md)
+
+## Estado actual
+
+Implementado:
+
+- API con login, empresa actual, aplicaciones, tickets, estados, comentarios y
+  evidencias.
+- Dominio DDD/POO compartido.
+- Cliente Expo conectado a API.
+- Version web responsive compilable.
+- Cache local del cliente.
+- Docker/Nginx para Hostinger VPS.
+- Pruebas basicas del dominio y servicios.
+
+Siguientes mejoras naturales:
+
+- Administracion completa de usuarios y aplicaciones.
+- Base PostgreSQL para produccion de mayor escala.
+- Notificaciones y asignaciones.
+- Dashboard por prioridad, estado y aplicacion.
+- Descarga/preview avanzada de evidencias desde mobile.
