@@ -2,7 +2,7 @@ import { NavigationContainer } from "@react-navigation/native";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { TicketProvider } from "./src/context/TicketContext";
-import Tabs from "./src/navigation/Tabs";
+import Root from "./src/navigation/Root";
 import { colors } from "./src/styles/colors";
 
 const navigationTheme = {
@@ -41,7 +41,7 @@ export default function App() {
       <TicketProvider>
         <NavigationContainer theme={navigationTheme}>
           <StatusBar style="light" />
-          <Tabs />
+          <Root />
         </NavigationContainer>
       </TicketProvider>
     </SafeAreaProvider>

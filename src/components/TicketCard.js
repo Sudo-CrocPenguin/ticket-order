@@ -1,72 +1,116 @@
-import { Animated, Pressable, Text, View } from "react-native";
-import { useRef } from "react";
+import { Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../styles/colors";
 import { styles } from "../styles/styles";
 import { formatTicketDate } from "../utils/ticketUtils";
+import {
+  TICKET_PRIORITY_LABELS,
+  TICKET_STATUS,
+  TICKET_STATUS_LABELS,
+} from "../utils/ticketLabels";
 
-export default function TicketCard({ ticket, variant = "active", onComplete, onReopen }) {
-  const scale = useRef(new Animated.Value(1)).current;
-  const isCompleted = variant === "completed" || ticket.status === "completed";
-  const primaryAction = isCompleted ? onReopen : onComplete;
-  const actionLabel = isCompleted ? "Reabrir" : "Completar";
-  const actionIcon = isCompleted ? "refresh" : "checkmark";
+const StatusButton = ({ icon, label, disabled, onPress }) => (
+  <Pressable
+    accessibilityLabel={label}
+    accessibilityRole="button"
+    disabled={disabled}
+    onPress={onPress}
+    style={({ pressed }) => [
+      styles.compactButton,
+      disabled && styles.buttonDisabled,
+      pressed && !disabled && styles.buttonPressed,
+    ]}
+  >
+    <Ionicons
+      name={icon}
+      size={16}
+      color={disabled ? colors.textMuted : colors.text}
+    />
+    <Text style={[styles.compactButtonText, disabled && styles.buttonDisabledText]}>
+      {label}
+    </Text>
+  </Pressable>
+);
+
+export default function TicketCard({
+  ticket,
+  variant = "active",
+  onChangeStatus,
+  onAddEvidence,
+}) {
+  const isCompleted = ticket.status === TICKET_STATUS.COMPLETED || variant === "completed";
   const metaText = isCompleted
     ? `Completado ${formatTicketDate(ticket.completedAt)}`
-    : `Creado ${formatTicketDate(ticket.createdAt)}`;
-
-  const animatePress = () => {
-    if (!primaryAction) return;
-
-    Animated.sequence([
-      Animated.timing(scale, {
-        toValue: 0.97,
-        duration: 80,
-        useNativeDriver: true,
-      }),
-      Animated.timing(scale, {
-        toValue: 1,
-        duration: 80,
-        useNativeDriver: true,
-      }),
-    ]).start(() => primaryAction(ticket.id));
-  };
+    : `Actualizado ${formatTicketDate(ticket.updatedAt || ticket.createdAt)}`;
+  const evidenceCount = ticket.evidences?.length || 0;
 
   return (
-    <Animated.View style={[styles.card, { transform: [{ scale }] }]}>
+    <View style={styles.card}>
       <View style={styles.cardHeader}>
         <View style={styles.cardTitleGroup}>
-          <Text style={styles.ticketNumber}>Ticket #{ticket.id}</Text>
+          <Text style={styles.ticketNumber}>Ticket {ticket.id}</Text>
           <Text style={styles.title}>{ticket.title}</Text>
         </View>
 
         <View style={styles.badge}>
-          <Text style={styles.badgeText}>{isCompleted ? "Cerrado" : "Activo"}</Text>
+          <Text style={styles.badgeText}>
+            {TICKET_STATUS_LABELS[ticket.status] || ticket.status}
+          </Text>
         </View>
       </View>
 
       <Text style={[styles.text, !ticket.description && styles.mutedText]}>
         {ticket.description || "Sin descripcion adicional."}
       </Text>
-      <Text style={styles.metaText}>{metaText}</Text>
 
-      {primaryAction ? (
-        <View style={styles.actionRow}>
-          <Pressable
-            accessibilityLabel={`${actionLabel} ticket ${ticket.id}`}
-            accessibilityRole="button"
-            onPress={animatePress}
-            style={({ pressed }) => [
-              styles.button,
-              styles.secondaryButton,
-              pressed && styles.buttonPressed,
-            ]}
-          >
-            <Ionicons name={actionIcon} size={18} color={colors.text} />
-            <Text style={[styles.buttonText, styles.secondaryButtonText]}>{actionLabel}</Text>
-          </Pressable>
-        </View>
+      <View style={styles.metaRow}>
+        <Text style={styles.metaText}>{metaText}</Text>
+        <Text style={styles.metaText}>
+          Prioridad {TICKET_PRIORITY_LABELS[ticket.priority] || ticket.priority}
+        </Text>
+      </View>
+
+      <View style={styles.evidenceSummary}>
+        <Ionicons name="attach-outline" size={16} color={colors.textDim} />
+        <Text style={styles.metaText}>
+          {evidenceCount
+            ? `${evidenceCount} evidencia${evidenceCount === 1 ? "" : "s"}`
+            : "Sin evidencias"}
+        </Text>
+      </View>
+
+      {ticket.statusHistory?.length ? (
+        <Text style={styles.metaText}>
+          Ultimo cambio: {TICKET_STATUS_LABELS[ticket.statusHistory[0].toStatus]} por{" "}
+          {formatTicketDate(ticket.statusHistory[0].createdAt)}
+        </Text>
       ) : null}
-    </Animated.View>
+
+      <View style={styles.actionRowWrap}>
+        <StatusButton
+          disabled={ticket.status === TICKET_STATUS.PENDING}
+          icon="pause-outline"
+          label="Pendiente"
+          onPress={() => onChangeStatus?.(ticket.id, TICKET_STATUS.PENDING)}
+        />
+        <StatusButton
+          disabled={ticket.status === TICKET_STATUS.IN_PROGRESS}
+          icon="construct-outline"
+          label="En progreso"
+          onPress={() => onChangeStatus?.(ticket.id, TICKET_STATUS.IN_PROGRESS)}
+        />
+        <StatusButton
+          disabled={ticket.status === TICKET_STATUS.COMPLETED}
+          icon="checkmark-done-outline"
+          label="Completado"
+          onPress={() => onChangeStatus?.(ticket.id, TICKET_STATUS.COMPLETED)}
+        />
+        <StatusButton
+          icon="cloud-upload-outline"
+          label="Evidencia"
+          onPress={() => onAddEvidence?.(ticket.id)}
+        />
+      </View>
+    </View>
   );
 }

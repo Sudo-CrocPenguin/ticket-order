@@ -1,88 +1,137 @@
 import { createContext, useCallback, useEffect, useMemo, useReducer } from "react";
-import { loadTicketState, saveTicketState } from "../services/ticketStorage";
+import { apiClient } from "../services/apiClient";
+import { pickEvidence } from "../services/evidencePicker";
 import {
-  completeTicket as buildCompletedTicket,
-  createTicket,
-  getTicketStats,
-  reopenTicket as buildReopenedTicket,
-  validateTicketInput,
-} from "../utils/ticketUtils";
+  addTicketCommentRequest,
+  addTicketEvidenceRequest,
+  changeTicketStatusRequest,
+  createTicketRequest,
+  loadWorkspaceRequest,
+  loginRequest,
+} from "../services/ticketApi";
+import {
+  clearSession,
+  loadSession,
+  loadWorkspaceCache,
+  saveSession,
+  saveWorkspaceCache,
+} from "../services/sessionStorage";
+import { getTicketStats, validateTicketInput } from "../utils/ticketUtils";
+import { TICKET_STATUS } from "../utils/ticketLabels";
 
 export const TicketContext = createContext(null);
 
 const initialState = {
+  session: null,
+  company: null,
+  applications: [],
+  selectedApplicationId: "",
   tickets: [],
-  history: [],
-  counter: 1,
   isReady: false,
+  isSyncing: false,
   storageError: "",
 };
 
-const moveById = (items, id) => {
-  const item = items.find((ticket) => ticket.id === id);
-  const remaining = items.filter((ticket) => ticket.id !== id);
+const sortTickets = (tickets) =>
+  [...tickets].sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
 
-  return { item, remaining };
+const replaceTicket = (tickets, nextTicket) => {
+  const exists = tickets.some((ticket) => ticket.id === nextTicket.id);
+  const nextTickets = exists
+    ? tickets.map((ticket) => (ticket.id === nextTicket.id ? nextTicket : ticket))
+    : [nextTicket, ...tickets];
+
+  return sortTickets(nextTickets);
 };
 
-const ticketReducer = (state, action) => {
+const reducer = (state, action) => {
   switch (action.type) {
-    case "LOAD_SUCCESS":
+    case "BOOT_START":
+      return {
+        ...state,
+        isReady: false,
+        isSyncing: true,
+        storageError: "",
+      };
+
+    case "BOOT_GUEST":
+      return {
+        ...initialState,
+        isReady: true,
+      };
+
+    case "WORKSPACE_SUCCESS":
       return {
         ...state,
         ...action.payload,
+        selectedApplicationId:
+          state.selectedApplicationId ||
+          action.payload.selectedApplicationId ||
+          action.payload.applications[0]?.id ||
+          "",
+        tickets: sortTickets(action.payload.tickets || []),
+        isReady: true,
+        isSyncing: false,
+        storageError: "",
+      };
+
+    case "WORKSPACE_CACHE":
+      return {
+        ...state,
+        ...action.payload.cache,
+        session: action.payload.session,
+        tickets: sortTickets(action.payload.cache?.tickets || []),
+        isReady: true,
+        isSyncing: false,
+        storageError:
+          "No se pudo conectar con la API. Mostrando la ultima cache local.",
+      };
+
+    case "WORKSPACE_ERROR":
+      return {
+        ...state,
+        isReady: true,
+        isSyncing: false,
+        storageError: action.payload,
+      };
+
+    case "LOGIN_SUCCESS":
+      return {
+        ...state,
+        session: action.payload,
         isReady: true,
         storageError: "",
       };
 
-    case "LOAD_ERROR":
+    case "LOGOUT":
       return {
-        ...state,
+        ...initialState,
         isReady: true,
-        storageError: action.payload,
       };
 
-    case "SAVE_ERROR":
+    case "SET_SYNCING":
+      return {
+        ...state,
+        isSyncing: action.payload,
+      };
+
+    case "SET_SELECTED_APPLICATION":
+      return {
+        ...state,
+        selectedApplicationId: action.payload,
+      };
+
+    case "UPSERT_TICKET":
+      return {
+        ...state,
+        tickets: replaceTicket(state.tickets, action.payload),
+        storageError: "",
+      };
+
+    case "SET_ERROR":
       return {
         ...state,
         storageError: action.payload,
-      };
-
-    case "ADD_TICKET":
-      return {
-        ...state,
-        tickets: [...state.tickets, action.payload],
-        counter: state.counter + 1,
-      };
-
-    case "COMPLETE_TICKET": {
-      const { item, remaining } = moveById(state.tickets, action.payload);
-
-      if (!item) return state;
-
-      return {
-        ...state,
-        tickets: remaining,
-        history: [buildCompletedTicket(item), ...state.history],
-      };
-    }
-
-    case "REOPEN_TICKET": {
-      const { item, remaining } = moveById(state.history, action.payload);
-
-      if (!item) return state;
-
-      return {
-        ...state,
-        tickets: [...state.tickets, buildReopenedTicket(item)],
-        history: remaining,
-      };
-    }
-
-    case "CLEAR_HISTORY":
-      return {
-        ...state,
-        history: [],
       };
 
     default:
@@ -91,29 +140,78 @@ const ticketReducer = (state, action) => {
 };
 
 export const TicketProvider = ({ children }) => {
-  const [state, dispatch] = useReducer(ticketReducer, initialState);
+  const [state, dispatch] = useReducer(reducer, initialState);
+
+  const loadWorkspace = useCallback(async (session) => {
+    apiClient.setToken(session.token);
+    const workspace = await loadWorkspaceRequest();
+
+    dispatch({
+      type: "WORKSPACE_SUCCESS",
+      payload: {
+        ...workspace,
+        session,
+      },
+    });
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
 
-    const hydrateTickets = async () => {
-      try {
-        const persistedState = await loadTicketState();
+    const boot = async () => {
+      dispatch({ type: "BOOT_START" });
 
-        if (isMounted) {
-          dispatch({ type: "LOAD_SUCCESS", payload: persistedState });
+      try {
+        const storedSession = await loadSession();
+
+        if (!storedSession) {
+          if (isMounted) dispatch({ type: "BOOT_GUEST" });
+          return;
+        }
+
+        apiClient.setToken(storedSession.token);
+
+        try {
+          const workspace = await loadWorkspaceRequest();
+
+          if (isMounted) {
+            dispatch({
+              type: "WORKSPACE_SUCCESS",
+              payload: {
+                ...workspace,
+                session: storedSession,
+              },
+            });
+          }
+        } catch (error) {
+          const cachedWorkspace = await loadWorkspaceCache();
+
+          if (isMounted && cachedWorkspace) {
+            dispatch({
+              type: "WORKSPACE_CACHE",
+              payload: {
+                session: storedSession,
+                cache: cachedWorkspace,
+              },
+            });
+            return;
+          }
+
+          throw error;
         }
       } catch (error) {
         if (isMounted) {
           dispatch({
-            type: "LOAD_ERROR",
-            payload: "No se pudieron cargar los tickets guardados.",
+            type: "WORKSPACE_ERROR",
+            payload:
+              error.message ||
+              "No se pudo iniciar la aplicacion con la API configurada.",
           });
         }
       }
     };
 
-    hydrateTickets();
+    boot();
 
     return () => {
       isMounted = false;
@@ -121,68 +219,211 @@ export const TicketProvider = ({ children }) => {
   }, []);
 
   useEffect(() => {
-    if (!state.isReady) return;
+    if (!state.session || !state.isReady) return;
 
-    const persistTickets = async () => {
+    saveWorkspaceCache({
+      company: state.company,
+      applications: state.applications,
+      selectedApplicationId: state.selectedApplicationId,
+      tickets: state.tickets,
+    }).catch(() => {});
+  }, [
+    state.applications,
+    state.company,
+    state.isReady,
+    state.selectedApplicationId,
+    state.session,
+    state.tickets,
+  ]);
+
+  const login = useCallback(
+    async (email, password) => {
+      dispatch({ type: "SET_SYNCING", payload: true });
+
       try {
-        await saveTicketState(state);
-      } catch (error) {
-        dispatch({
-          type: "SAVE_ERROR",
-          payload: "No se pudieron guardar los cambios en este dispositivo.",
-        });
-      }
-    };
+        const result = await loginRequest({ email, password });
+        const session = {
+          token: result.token,
+          user: result.user,
+        };
 
-    persistTickets();
-  }, [state.tickets, state.history, state.counter, state.isReady]);
+        await saveSession(session);
+        dispatch({ type: "LOGIN_SUCCESS", payload: session });
+        await loadWorkspace(session);
+
+        return { ok: true };
+      } catch (error) {
+        const message = error.message || "No se pudo iniciar sesion.";
+        dispatch({ type: "SET_ERROR", payload: message });
+        return { ok: false, message };
+      } finally {
+        dispatch({ type: "SET_SYNCING", payload: false });
+      }
+    },
+    [loadWorkspace]
+  );
+
+  const logout = useCallback(async () => {
+    await clearSession();
+    apiClient.setToken("");
+    dispatch({ type: "LOGOUT" });
+  }, []);
+
+  const refreshWorkspace = useCallback(async () => {
+    if (!state.session) return;
+
+    dispatch({ type: "SET_SYNCING", payload: true });
+
+    try {
+      await loadWorkspace(state.session);
+    } catch (error) {
+      dispatch({
+        type: "SET_ERROR",
+        payload: error.message || "No se pudo sincronizar con el servidor.",
+      });
+    } finally {
+      dispatch({ type: "SET_SYNCING", payload: false });
+    }
+  }, [loadWorkspace, state.session]);
+
+  const setSelectedApplicationId = useCallback((applicationId) => {
+    dispatch({ type: "SET_SELECTED_APPLICATION", payload: applicationId });
+  }, []);
 
   const addTicket = useCallback(
-    (title, description) => {
+    async (title, description, priority) => {
       const validation = validateTicketInput(title, description);
 
       if (!validation.ok) {
         return validation;
       }
 
-      const ticket = createTicket({
-        id: state.counter,
-        title: validation.value.title,
-        description: validation.value.description,
-      });
+      if (!state.selectedApplicationId) {
+        return {
+          ok: false,
+          message: "Selecciona una aplicacion para registrar el ticket.",
+        };
+      }
 
-      dispatch({ type: "ADD_TICKET", payload: ticket });
-
-      return { ok: true, ticket };
+      try {
+        const result = await createTicketRequest({
+          applicationId: state.selectedApplicationId,
+          title: validation.value.title,
+          description: validation.value.description,
+          priority,
+        });
+        dispatch({ type: "UPSERT_TICKET", payload: result.ticket });
+        return { ok: true, ticket: result.ticket };
+      } catch (error) {
+        const message = error.message || "No se pudo crear el ticket.";
+        dispatch({ type: "SET_ERROR", payload: message });
+        return { ok: false, message };
+      }
     },
-    [state.counter]
+    [state.selectedApplicationId]
   );
 
-  const completeTicket = useCallback((id) => {
-    dispatch({ type: "COMPLETE_TICKET", payload: id });
+  const changeTicketStatus = useCallback(async (ticketId, status, note = "") => {
+    try {
+      const result = await changeTicketStatusRequest(ticketId, { status, note });
+      dispatch({ type: "UPSERT_TICKET", payload: result.ticket });
+      return { ok: true, ticket: result.ticket };
+    } catch (error) {
+      const message = error.message || "No se pudo cambiar el estado.";
+      dispatch({ type: "SET_ERROR", payload: message });
+      return { ok: false, message };
+    }
   }, []);
 
-  const reopenTicket = useCallback((id) => {
-    dispatch({ type: "REOPEN_TICKET", payload: id });
+  const completeTicket = useCallback(
+    (ticketId) => changeTicketStatus(ticketId, TICKET_STATUS.COMPLETED),
+    [changeTicketStatus]
+  );
+
+  const reopenTicket = useCallback(
+    (ticketId) => changeTicketStatus(ticketId, TICKET_STATUS.PENDING),
+    [changeTicketStatus]
+  );
+
+  const attachEvidence = useCallback(async (ticketId) => {
+    try {
+      const evidence = await pickEvidence();
+
+      if (!evidence) {
+        return { ok: false, cancelled: true };
+      }
+
+      const result = await addTicketEvidenceRequest(ticketId, evidence);
+      dispatch({ type: "UPSERT_TICKET", payload: result.ticket });
+      return { ok: true, ticket: result.ticket };
+    } catch (error) {
+      const message = error.message || "No se pudo adjuntar la evidencia.";
+      dispatch({ type: "SET_ERROR", payload: message });
+      return { ok: false, message };
+    }
   }, []);
 
-  const clearHistory = useCallback(() => {
-    dispatch({ type: "CLEAR_HISTORY" });
+  const addComment = useCallback(async (ticketId, body) => {
+    try {
+      const result = await addTicketCommentRequest(ticketId, { body });
+      dispatch({ type: "UPSERT_TICKET", payload: result.ticket });
+      return { ok: true, ticket: result.ticket };
+    } catch (error) {
+      const message = error.message || "No se pudo registrar el comentario.";
+      dispatch({ type: "SET_ERROR", payload: message });
+      return { ok: false, message };
+    }
   }, []);
+
+  const activeTickets = useMemo(
+    () => state.tickets.filter((ticket) => ticket.status !== TICKET_STATUS.COMPLETED),
+    [state.tickets]
+  );
+  const history = useMemo(
+    () => state.tickets.filter((ticket) => ticket.status === TICKET_STATUS.COMPLETED),
+    [state.tickets]
+  );
 
   const value = useMemo(
     () => ({
-      tickets: state.tickets,
-      history: state.history,
+      session: state.session,
+      user: state.session?.user || null,
+      company: state.company,
+      applications: state.applications,
+      selectedApplicationId: state.selectedApplicationId,
+      tickets: activeTickets,
+      allTickets: state.tickets,
+      history,
       isReady: state.isReady,
+      isSyncing: state.isSyncing,
       storageError: state.storageError,
-      stats: getTicketStats(state.tickets, state.history),
+      stats: getTicketStats(activeTickets, history, state.tickets),
+      login,
+      logout,
+      refreshWorkspace,
+      setSelectedApplicationId,
       addTicket,
+      changeTicketStatus,
       completeTicket,
       reopenTicket,
-      clearHistory,
+      attachEvidence,
+      addComment,
     }),
-    [state, addTicket, completeTicket, reopenTicket, clearHistory]
+    [
+      activeTickets,
+      addComment,
+      addTicket,
+      attachEvidence,
+      changeTicketStatus,
+      completeTicket,
+      history,
+      login,
+      logout,
+      refreshWorkspace,
+      reopenTicket,
+      setSelectedApplicationId,
+      state,
+    ]
   );
 
   return <TicketContext.Provider value={value}>{children}</TicketContext.Provider>;

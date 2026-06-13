@@ -25,16 +25,66 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   screenPadding: {
+    alignSelf: "center",
+    maxWidth: 980,
     paddingHorizontal: 18,
     paddingTop: 18,
+    width: "100%",
   },
   listContent: {
+    alignSelf: "center",
+    maxWidth: 980,
     paddingHorizontal: 18,
     paddingTop: 18,
     paddingBottom: 28,
+    width: "100%",
+  },
+  centeredScreen: {
+    alignItems: "center",
+    flex: 1,
+    justifyContent: "center",
+    padding: 24,
+  },
+  authShell: {
+    alignSelf: "center",
+    justifyContent: "center",
+    maxWidth: 520,
+    minHeight: "100%",
+    padding: 18,
+    width: "100%",
+  },
+  authPanel: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 16,
   },
   headerBlock: {
     marginBottom: 18,
+  },
+  headerRow: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    gap: 12,
+    justifyContent: "space-between",
+  },
+  headerTextGroup: {
+    flex: 1,
+  },
+  headerActions: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  iconActionButton: {
+    alignItems: "center",
+    backgroundColor: colors.surfaceElevated,
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    height: 42,
+    justifyContent: "center",
+    width: 42,
   },
   header: {
     color: colors.text,
@@ -56,15 +106,17 @@ export const styles = StyleSheet.create({
   },
   statsRow: {
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: 10,
     marginBottom: 16,
   },
   statCard: {
-    flex: 1,
     backgroundColor: colors.surface,
     borderColor: colors.border,
     borderRadius: 8,
     borderWidth: 1,
+    flex: 1,
+    minWidth: 118,
     padding: 12,
   },
   statValue: {
@@ -207,6 +259,12 @@ export const styles = StyleSheet.create({
     gap: 10,
     marginTop: 14,
   },
+  actionRowWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 14,
+  },
   button: {
     alignItems: "center",
     backgroundColor: colors.primary,
@@ -232,9 +290,26 @@ export const styles = StyleSheet.create({
   dangerButton: {
     backgroundColor: colors.danger,
   },
+  compactButton: {
+    alignItems: "center",
+    backgroundColor: colors.surfaceElevated,
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 6,
+    minHeight: 40,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
   buttonText: {
     color: colors.black,
     fontSize: 15,
+    fontWeight: "800",
+  },
+  compactButtonText: {
+    color: colors.text,
+    fontSize: 13,
     fontWeight: "800",
   },
   buttonDisabledText: {
@@ -278,5 +353,42 @@ export const styles = StyleSheet.create({
     color: colors.danger,
     fontSize: 13,
     lineHeight: 18,
+  },
+  segmentedRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 16,
+  },
+  segmentButton: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  segmentButtonActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  segmentButtonText: {
+    color: colors.textMuted,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  segmentButtonTextActive: {
+    color: colors.black,
+  },
+  metaRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+  },
+  evidenceSummary: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 4,
+    marginTop: 8,
   },
 });

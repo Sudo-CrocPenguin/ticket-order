@@ -1,5 +1,5 @@
-export const MAX_TITLE_LENGTH = 80;
-export const MAX_DESCRIPTION_LENGTH = 400;
+export const MAX_TITLE_LENGTH = 120;
+export const MAX_DESCRIPTION_LENGTH = 1200;
 
 const DEFAULT_COUNTER = 1;
 
@@ -148,10 +148,11 @@ export const searchTickets = (tickets, query) => {
   });
 };
 
-export const getTicketStats = (tickets, history) => ({
+export const getTicketStats = (tickets, history, allTickets = []) => ({
   active: tickets.length,
+  inProgress: allTickets.filter((ticket) => ticket.status === "in_progress").length,
   completed: history.length,
-  total: tickets.length + history.length,
+  total: allTickets.length || tickets.length + history.length,
 });
 
 export const formatTicketDate = (value) => {

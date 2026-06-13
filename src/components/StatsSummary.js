@@ -12,6 +12,7 @@ export default function StatsSummary({ stats }) {
   return (
     <View style={styles.statsRow}>
       <StatCard label="Activos" value={stats.active} />
+      <StatCard label="En progreso" value={stats.inProgress} />
       <StatCard label="Cerrados" value={stats.completed} />
       <StatCard label="Total" value={stats.total} />
     </View>

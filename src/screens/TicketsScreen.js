@@ -1,22 +1,42 @@
-import { FlatList, Text, View } from "react-native";
+import { FlatList, Pressable, Text, View } from "react-native";
 import { useMemo, useState } from "react";
+import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import EmptyState from "../components/EmptyState";
 import SearchBox from "../components/SearchBox";
 import StatsSummary from "../components/StatsSummary";
 import TicketCard from "../components/TicketCard";
 import { useTickets } from "../hooks/useTickets";
+import { colors } from "../styles/colors";
 import { styles } from "../styles/styles";
 import { searchTickets } from "../utils/ticketUtils";
 
 export default function TicketsScreen() {
-  const { tickets, completeTicket, isReady, stats, storageError } = useTickets();
+  const {
+    applications,
+    attachEvidence,
+    changeTicketStatus,
+    company,
+    isReady,
+    isSyncing,
+    logout,
+    refreshWorkspace,
+    selectedApplicationId,
+    setSelectedApplicationId,
+    stats,
+    storageError,
+    tickets,
+    user,
+  } = useTickets();
   const [search, setSearch] = useState("");
 
-  const filteredTickets = useMemo(
-    () => searchTickets(tickets, search),
-    [tickets, search]
-  );
+  const filteredTickets = useMemo(() => {
+    const byApplication = selectedApplicationId
+      ? tickets.filter((ticket) => ticket.applicationId === selectedApplicationId)
+      : tickets;
+
+    return searchTickets(byApplication, search);
+  }, [selectedApplicationId, tickets, search]);
 
   const emptyState = search
     ? {
@@ -42,9 +62,39 @@ export default function TicketsScreen() {
         ListHeaderComponent={
           <>
             <View style={styles.headerBlock}>
-              <Text style={styles.header}>Tickets activos</Text>
+              <View style={styles.headerRow}>
+                <View style={styles.headerTextGroup}>
+                  <Text style={styles.header}>Tickets activos</Text>
+                  <Text style={styles.subtitle}>
+                    {company?.name || "Empresa"} · {user?.name || "Usuario"}
+                  </Text>
+                </View>
+                <View style={styles.headerActions}>
+                  <Pressable
+                    accessibilityLabel="Sincronizar tickets"
+                    accessibilityRole="button"
+                    onPress={refreshWorkspace}
+                    style={styles.iconActionButton}
+                  >
+                    <Ionicons
+                      name={isSyncing ? "sync" : "refresh"}
+                      size={20}
+                      color={colors.text}
+                    />
+                  </Pressable>
+                  <Pressable
+                    accessibilityLabel="Cerrar sesion"
+                    accessibilityRole="button"
+                    onPress={logout}
+                    style={styles.iconActionButton}
+                  >
+                    <Ionicons name="log-out-outline" size={20} color={colors.text} />
+                  </Pressable>
+                </View>
+              </View>
               <Text style={styles.subtitle}>
-                Mantene visible solo lo que necesita accion y cerralo cuando este listo.
+                Reporta bugs con evidencias y mueve el trabajo entre pendiente, en
+                progreso y completado.
               </Text>
             </View>
 
@@ -55,9 +105,36 @@ export default function TicketsScreen() {
             ) : null}
 
             <StatsSummary stats={stats} />
+
+            {applications.length ? (
+              <View style={styles.segmentedRow}>
+                {applications.map((application) => {
+                  const selected = application.id === selectedApplicationId;
+
+                  return (
+                    <Pressable
+                      accessibilityRole="button"
+                      key={application.id}
+                      onPress={() => setSelectedApplicationId(application.id)}
+                      style={[styles.segmentButton, selected && styles.segmentButtonActive]}
+                    >
+                      <Text
+                        style={[
+                          styles.segmentButtonText,
+                          selected && styles.segmentButtonTextActive,
+                        ]}
+                      >
+                        {application.name}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ) : null}
+
             <SearchBox
               onChangeText={setSearch}
-              placeholder="Buscar por titulo, descripcion o ID"
+              placeholder="Buscar por titulo, descripcion, estado o ID"
               value={search}
             />
           </>
@@ -70,7 +147,11 @@ export default function TicketsScreen() {
           />
         }
         renderItem={({ item }) => (
-          <TicketCard ticket={item} onComplete={completeTicket} />
+          <TicketCard
+            ticket={item}
+            onAddEvidence={attachEvidence}
+            onChangeStatus={changeTicketStatus}
+          />
         )}
       />
     </SafeAreaView>
