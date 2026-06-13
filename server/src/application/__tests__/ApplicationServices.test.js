@@ -6,6 +6,7 @@ const test = require("node:test");
 const { TicketStatus } = require("../../../../shared/domain");
 const { AuthService } = require("../AuthService");
 const { BootstrapService } = require("../BootstrapService");
+const { CompanyService } = require("../CompanyService");
 const { TicketService } = require("../TicketService");
 const { JsonDatabase } = require("../../infrastructure/persistence/JsonDatabase");
 const { PasswordHasher } = require("../../infrastructure/security/PasswordHasher");
@@ -36,6 +37,7 @@ const createServices = async () => {
 
   return {
     authService: new AuthService({ database, passwordHasher, tokenService }),
+    companyService: new CompanyService({ database, passwordHasher }),
     database,
     ticketService: new TicketService({ database, fileStorage }),
   };
@@ -67,4 +69,37 @@ test("login, creacion y cambio de estado de ticket", async () => {
   assert.equal(ticket.status, TicketStatus.PENDING);
   assert.equal(updated.status, TicketStatus.IN_PROGRESS);
   assert.equal(updated.statusHistory.length, 2);
+});
+
+test("registra empresa y permite administrar usuarios y aplicaciones", async () => {
+  const { authService, companyService } = await createServices();
+  const registration = await companyService.registerCompany({
+    companyName: "Nueva Empresa",
+    applicationName: "Portal Clientes",
+    adminName: "Admin Nuevo",
+    adminEmail: "admin@nueva.local",
+    adminPassword: "Admin123!",
+  });
+
+  const login = await authService.login({
+    email: "admin@nueva.local",
+    password: "Admin123!",
+  });
+  const admin = await authService.resolveUserFromToken(login.token);
+  const application = await companyService.createApplication(admin, {
+    name: "Backoffice",
+    description: "Gestion interna.",
+  });
+  const developer = await companyService.createUser(admin, {
+    name: "Dev Uno",
+    email: "dev@nueva.local",
+    password: "Developer123!",
+    role: "developer",
+  });
+  const users = await companyService.listUsers(admin);
+
+  assert.equal(registration.company.slug, "nueva-empresa");
+  assert.equal(application.name, "Backoffice");
+  assert.equal(developer.email, "dev@nueva.local");
+  assert.equal(users.length, 2);
 });

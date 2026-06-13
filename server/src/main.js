@@ -34,7 +34,7 @@ const start = async () => {
     passwordHasher,
     tokenService,
   });
-  const companyService = new CompanyService({ database });
+  const companyService = new CompanyService({ database, passwordHasher });
   const ticketService = new TicketService({ database, fileStorage });
 
   const seedResult = await bootstrapService.ensureSeedData();

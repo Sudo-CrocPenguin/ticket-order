@@ -121,6 +121,13 @@ class HttpApp {
       return;
     }
 
+    if (request.method === "POST" && pathname === "/api/companies/register") {
+      const body = await readJsonBody(request);
+      const result = await this.companyService.registerCompany(body);
+      sendJson(response, 201, result);
+      return;
+    }
+
     const user = await this.resolveUser(request);
 
     if (request.method === "GET" && pathname === "/api/me") {
@@ -137,6 +144,26 @@ class HttpApp {
     if (request.method === "GET" && pathname === "/api/applications") {
       const result = await this.companyService.getCurrentCompany(user);
       sendJson(response, 200, { applications: result.applications });
+      return;
+    }
+
+    if (request.method === "POST" && pathname === "/api/applications") {
+      const body = await readJsonBody(request);
+      const application = await this.companyService.createApplication(user, body);
+      sendJson(response, 201, { application });
+      return;
+    }
+
+    if (request.method === "GET" && pathname === "/api/users") {
+      const users = await this.companyService.listUsers(user);
+      sendJson(response, 200, { users });
+      return;
+    }
+
+    if (request.method === "POST" && pathname === "/api/users") {
+      const body = await readJsonBody(request);
+      const createdUser = await this.companyService.createUser(user, body);
+      sendJson(response, 201, { user: createdUser });
       return;
     }
 
