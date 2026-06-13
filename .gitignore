@@ -25,9 +25,9 @@ pids/
 !.env.*.example
 
 # Local persistence and uploads
-data/
-uploads/
-storage/
+/data/
+/uploads/
+/storage/
 *.sqlite
 *.sqlite3
 *.db
