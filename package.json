@@ -4,9 +4,12 @@
   "main": "index.js",
   "scripts": {
     "start": "expo start",
+    "api": "node server/src/main.js",
+    "dev:api": "node server/src/main.js",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "test": "node --test \"shared/**/*.test.js\" \"server/**/*.test.js\""
   },
   "dependencies": {
     "@expo/vector-icons": "^15.1.1",
