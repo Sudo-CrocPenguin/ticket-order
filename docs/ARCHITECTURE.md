@@ -71,6 +71,8 @@ El cliente usa `TicketContext` como fachada de aplicacion:
 - Carga workspace remoto.
 - Guarda cache local de empresa, aplicaciones y tickets.
 - Expone acciones asincronas para pantallas.
+- Expone onboarding de empresa y acciones administrativas para usuarios y
+  aplicaciones.
 
 La app compila tanto para mobile como para web. Los contenedores de pantalla
 usan `maxWidth` y layouts con wrap para funcionar en movil y desktop.
@@ -88,5 +90,6 @@ usan `maxWidth` y layouts con wrap para funcionar en movil y desktop.
 
 - La persistencia JSON es suficiente para MVP y demos, pero PostgreSQL es mejor
   para concurrencia alta, reportes y auditoria avanzada.
-- La gestion de usuarios aun depende de usuario semilla.
+- La gestion de usuarios y aplicaciones existe para administradores, pero aun no
+  incluye edicion, desactivacion ni reseteo de contrasenas.
 - No hay migraciones de base de datos porque no hay DB relacional todavia.

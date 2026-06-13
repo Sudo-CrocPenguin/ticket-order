@@ -145,6 +145,8 @@ Implementado:
 
 - API con login, empresa actual, aplicaciones, tickets, estados, comentarios y
   evidencias.
+- Registro de nuevas empresas con administrador inicial.
+- Pantalla Admin para crear aplicaciones y usuarios.
 - Dominio DDD/POO compartido.
 - Cliente Expo conectado a API.
 - Version web responsive compilable.
@@ -154,7 +156,6 @@ Implementado:
 
 Siguientes mejoras naturales:
 
-- Administracion completa de usuarios y aplicaciones.
 - Base PostgreSQL para produccion de mayor escala.
 - Notificaciones y asignaciones.
 - Dashboard por prioridad, estado y aplicacion.

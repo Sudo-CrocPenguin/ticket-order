@@ -14,6 +14,44 @@ En Hostinger, Nginx publica la API bajo:
 
 ## Autenticacion
 
+### POST `/companies/register`
+
+Registra una empresa, crea su aplicacion inicial y genera el usuario admin.
+
+```json
+{
+  "companyName": "Nueva Empresa",
+  "applicationName": "Portal Clientes",
+  "adminName": "Admin Principal",
+  "adminEmail": "admin@empresa.com",
+  "adminPassword": "Admin123!"
+}
+```
+
+Respuesta:
+
+```json
+{
+  "company": {
+    "id": "cmp_...",
+    "name": "Nueva Empresa",
+    "slug": "nueva-empresa"
+  },
+  "application": {
+    "id": "app_...",
+    "companyId": "cmp_...",
+    "name": "Portal Clientes"
+  },
+  "user": {
+    "id": "usr_...",
+    "companyId": "cmp_...",
+    "name": "Admin Principal",
+    "email": "admin@empresa.com",
+    "role": "admin"
+  }
+}
+```
+
 ### POST `/auth/login`
 
 Inicia sesion.
@@ -61,6 +99,42 @@ Devuelve empresa actual y aplicaciones visibles.
 ### GET `/applications`
 
 Devuelve solo aplicaciones.
+
+### POST `/applications`
+
+Crea una aplicacion dentro de la empresa autenticada. Requiere rol `admin`.
+
+```json
+{
+  "name": "Backoffice",
+  "description": "Gestion interna."
+}
+```
+
+## Usuarios
+
+### GET `/users`
+
+Lista usuarios de la empresa autenticada. Requiere rol `admin`.
+
+### POST `/users`
+
+Crea un usuario dentro de la empresa autenticada. Requiere rol `admin`.
+
+```json
+{
+  "name": "Desarrollador Uno",
+  "email": "dev@empresa.com",
+  "password": "Developer123!",
+  "role": "developer"
+}
+```
+
+Roles:
+
+- `admin`: gestiona empresa, aplicaciones, usuarios y tickets.
+- `developer`: gestiona tickets.
+- `viewer`: solo consulta.
 
 ## Tickets
 
