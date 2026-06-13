@@ -48,9 +48,7 @@
 
 ## Fase 7: Proximas iteraciones
 
-- Edicion y desactivacion de usuarios.
 - Reseteo seguro de contrasenas.
-- Edicion y archivado de aplicaciones.
 - Migracion a PostgreSQL.
 - Asignacion de tickets.
 - Notificaciones.

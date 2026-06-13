@@ -35,6 +35,7 @@ Las reglas importantes estan dentro de estas clases:
 - Cambiar estado crea un registro de auditoria.
 - Las evidencias validan tipo MIME y tamano.
 - Los usuarios solo pueden operar sobre su empresa.
+- Una empresa debe conservar al menos un administrador activo.
 
 ## API
 
@@ -90,6 +91,6 @@ usan `maxWidth` y layouts con wrap para funcionar en movil y desktop.
 
 - La persistencia JSON es suficiente para MVP y demos, pero PostgreSQL es mejor
   para concurrencia alta, reportes y auditoria avanzada.
-- La gestion de usuarios y aplicaciones existe para administradores, pero aun no
-  incluye edicion, desactivacion ni reseteo de contrasenas.
+- La gestion de usuarios y aplicaciones existe para administradores, incluyendo
+  edicion y activacion/desactivacion. Aun falta reseteo de contrasenas.
 - No hay migraciones de base de datos porque no hay DB relacional todavia.

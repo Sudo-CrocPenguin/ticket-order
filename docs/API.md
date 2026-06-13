@@ -111,6 +111,19 @@ Crea una aplicacion dentro de la empresa autenticada. Requiere rol `admin`.
 }
 ```
 
+### PATCH `/applications/:id`
+
+Edita nombre, descripcion o estado activo de una aplicacion. Requiere rol
+`admin`.
+
+```json
+{
+  "name": "Backoffice Operaciones",
+  "description": "Gestion interna actualizada.",
+  "isActive": true
+}
+```
+
 ## Usuarios
 
 ### GET `/users`
@@ -135,6 +148,20 @@ Roles:
 - `admin`: gestiona empresa, aplicaciones, usuarios y tickets.
 - `developer`: gestiona tickets.
 - `viewer`: solo consulta.
+
+### PATCH `/users/:id`
+
+Edita nombre, correo, rol o estado activo de un usuario. Requiere rol `admin`.
+La API impide dejar una empresa sin al menos un administrador activo.
+
+```json
+{
+  "name": "Desarrollador Principal",
+  "email": "dev.principal@empresa.com",
+  "role": "developer",
+  "isActive": true
+}
+```
 
 ## Tickets
 
