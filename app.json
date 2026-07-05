@@ -7,6 +7,12 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "plugins": [
+      "expo-notifications"
+    ],
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -28,8 +34,13 @@
     },
     "extra": {
       "eas": {
-        "projectId": "112e3974-1151-40aa-b4f9-001ce0b83fc1"
+        "projectId": "42d2c77c-665b-4326-9f07-a5919af99e12"
       }
+    },
+    "owner": "servermiguel1",
+    "updates": {
+      "url": "https://u.expo.dev/42d2c77c-665b-4326-9f07-a5919af99e12",
+      "checkAutomatically": "NEVER"
     }
   }
 }

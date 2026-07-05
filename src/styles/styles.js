@@ -350,6 +350,38 @@ export const styles = StyleSheet.create({
     marginTop: 6,
     textAlign: "center",
   },
+  updateIcon: {
+    alignItems: "center",
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    height: 56,
+    justifyContent: "center",
+    width: 56,
+  },
+  offlineIcon: {
+    alignItems: "center",
+    backgroundColor: colors.warning,
+    borderRadius: 8,
+    height: 56,
+    justifyContent: "center",
+    width: 56,
+  },
+  updateActions: {
+    alignItems: "stretch",
+    gap: 10,
+    marginTop: 18,
+    maxWidth: 320,
+    width: "100%",
+  },
+  updateButton: {
+    width: "100%",
+  },
+  updateError: {
+    marginBottom: 0,
+    marginTop: 14,
+    maxWidth: 360,
+    textAlign: "center",
+  },
   storageNotice: {
     backgroundColor: "rgba(242, 95, 92, 0.12)",
     borderColor: colors.danger,
