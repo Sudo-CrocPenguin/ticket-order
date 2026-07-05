@@ -1,16 +1,19 @@
 # Arquitectura
 
-Ticket Order usa una arquitectura cliente-servidor modular con separacion de
-dominio, aplicacion e infraestructura.
+Ticket Order usa una arquitectura Expo + Supabase para el flujo principal. La
+API Node modular queda conservada como legado local.
 
 ## Capas
 
 ```text
 Cliente Expo
-  Pantallas -> Contexto -> Servicios HTTP/cache/evidencias
+  Pantallas -> Contexto -> Servicios Supabase/cache/evidencias
 
-API Node
-  HTTP -> Casos de uso -> Dominio -> Persistencia/archivos
+Supabase
+  Auth -> RLS -> RPC -> Postgres/Storage
+
+API Node legado
+  HTTP -> Casos de uso -> Dominio -> Persistencia JSON/archivos
 
 Dominio compartido
   Entidades, value objects ligeros, constantes, validaciones y errores
@@ -37,9 +40,23 @@ Las reglas importantes estan dentro de estas clases:
 - Los usuarios solo pueden operar sobre su empresa.
 - Una empresa debe conservar al menos un administrador activo.
 
-## API
+## Supabase
 
-La API esta en `server/src`.
+El flujo principal usa Supabase:
+
+- Auth para registro e inicio de sesion.
+- Postgres para empresas, perfiles, aplicaciones, tickets, comentarios,
+  historial y evidencias.
+- RLS por `company_id` para aislar empresas.
+- RPC para operaciones con reglas atomicas: registrar empresa, crear ticket,
+  cambiar estado, comentar y registrar evidencias.
+- Storage privado para archivos de evidencia.
+
+El SQL base vive en `docs/supabase-schema.sql`.
+
+## API legado
+
+La API local anterior esta en `server/src`.
 
 - `application/`: casos de uso como login, bootstrapping, tickets y empresa.
 - `infrastructure/http/`: routing REST, CORS, auth Bearer y errores.
@@ -51,7 +68,7 @@ La API no depende de Express ni NestJS en esta version. Esto reduce peso para
 Hostinger y mantiene control total del runtime. Si el proyecto crece, los casos
 de uso y dominio pueden migrarse a NestJS sin reescribir reglas de negocio.
 
-## Persistencia local
+## Persistencia local legada
 
 El servidor guarda:
 
@@ -67,9 +84,9 @@ los datos sobrevivan a despliegues.
 
 El cliente usa `TicketContext` como fachada de aplicacion:
 
-- Carga sesion desde AsyncStorage.
-- Configura el token Bearer en `apiClient`.
-- Carga workspace remoto.
+- Bloquea la carga con `ConnectivityGate` cuando no hay internet.
+- Carga sesion desde Supabase Auth.
+- Carga workspace remoto desde Supabase.
 - Guarda cache local de empresa, aplicaciones y tickets.
 - Expone acciones asincronas para pantallas.
 - Expone onboarding de empresa y acciones administrativas para usuarios y
