@@ -131,6 +131,45 @@ export const styles = StyleSheet.create({
     marginTop: 2,
     textTransform: "uppercase",
   },
+  statsPanel: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 14,
+    padding: 14,
+  },
+  barRow: {
+    marginTop: 12,
+  },
+  barRowHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  barLabel: {
+    color: colors.text,
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  barValue: {
+    color: colors.textMuted,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  barTrack: {
+    backgroundColor: colors.surfaceElevated,
+    borderRadius: 8,
+    height: 10,
+    marginTop: 8,
+    overflow: "hidden",
+  },
+  barFill: {
+    borderRadius: 8,
+    height: "100%",
+  },
   input: {
     backgroundColor: colors.surface,
     borderColor: colors.border,

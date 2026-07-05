@@ -5,6 +5,7 @@ import TicketsScreen from "../screens/TicketsScreen";
 import AddTicketScreen from "../screens/AddTicketScreen";
 import HistoryScreen from "../screens/HistoryScreen";
 import AdminScreen from "../screens/AdminScreen";
+import StatsScreen from "../screens/StatsScreen";
 import { useTickets } from "../hooks/useTickets";
 import { colors } from "../styles/colors";
 
@@ -33,6 +34,17 @@ export default function Tabs() {
         },
       }}
     >
+      <Tab.Screen
+        name="Stats"
+        component={StatsScreen}
+        options={{
+          title: "Estadisticas",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="analytics-outline" size={size} color={color} />
+          ),
+        }}
+      />
+
       <Tab.Screen
         name="Tickets"
         component={TicketsScreen}
