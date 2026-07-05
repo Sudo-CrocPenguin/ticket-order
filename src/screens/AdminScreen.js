@@ -321,11 +321,16 @@ export default function AdminScreen() {
               <Text style={styles.fieldLabel}>Correo</Text>
               <TextInput
                 autoCapitalize="none"
+                editable={!selectedUserId}
                 keyboardType="email-address"
                 onChangeText={setUserEmail}
-                placeholder="dev@empresa.com"
+                placeholder={
+                  selectedUserId
+                    ? "No se cambia desde esta vista"
+                    : "dev@empresa.com"
+                }
                 placeholderTextColor={colors.textDim}
-                style={styles.input}
+                style={[styles.input, selectedUserId && styles.inputDisabled]}
                 value={userEmail}
               />
             </View>

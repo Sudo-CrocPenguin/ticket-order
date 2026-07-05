@@ -2,7 +2,7 @@ import { KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from
 import { useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { API_URL } from "../config/environment";
+import { SUPABASE_URL, isSupabaseConfigured } from "../config/environment";
 import { useTickets } from "../hooks/useTickets";
 import { colors } from "../styles/colors";
 import { styles } from "../styles/styles";
@@ -180,7 +180,9 @@ export default function LoginScreen({ initialError = "" }) {
               </Text>
             </Pressable>
 
-            <Text style={styles.helperText}>API configurada: {API_URL}</Text>
+            <Text style={styles.helperText}>
+              Supabase: {isSupabaseConfigured ? SUPABASE_URL : "sin configurar"}
+            </Text>
           </View>
         </View>
       </KeyboardAvoidingView>

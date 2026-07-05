@@ -1,5 +1,4 @@
 import { createContext, useCallback, useEffect, useMemo, useReducer } from "react";
-import { apiClient } from "../services/apiClient";
 import { pickEvidence } from "../services/evidencePicker";
 import {
   addTicketCommentRequest,
@@ -8,18 +7,20 @@ import {
   createApplicationRequest,
   createTicketRequest,
   createUserRequest,
+  getCurrentSessionRequest,
   listUsersRequest,
   loadWorkspaceRequest,
   loginRequest,
+  registerPushTokenRequest,
   registerCompanyRequest,
+  signOutRequest,
   updateApplicationRequest,
   updateUserRequest,
 } from "../services/ticketApi";
+import { registerForPushNotificationsAsync } from "../services/notificationService";
 import {
   clearSession,
-  loadSession,
   loadWorkspaceCache,
-  saveSession,
   saveWorkspaceCache,
 } from "../services/sessionStorage";
 import { getTicketStats, validateTicketInput } from "../utils/ticketUtils";
@@ -67,20 +68,30 @@ const reducer = (state, action) => {
         isReady: true,
       };
 
-    case "WORKSPACE_SUCCESS":
+    case "WORKSPACE_SUCCESS": {
+      const applications = action.payload.applications || [];
+      const currentApplicationStillAvailable = applications.some(
+        (application) =>
+          application.id === state.selectedApplicationId &&
+          application.isActive !== false
+      );
+      const nextSelectedApplicationId = currentApplicationStillAvailable
+        ? state.selectedApplicationId
+        : action.payload.selectedApplicationId ||
+          applications.find((application) => application.isActive !== false)?.id ||
+          applications[0]?.id ||
+          "";
+
       return {
         ...state,
         ...action.payload,
-        selectedApplicationId:
-          state.selectedApplicationId ||
-          action.payload.selectedApplicationId ||
-          action.payload.applications[0]?.id ||
-          "",
+        selectedApplicationId: nextSelectedApplicationId,
         tickets: sortTickets(action.payload.tickets || []),
         isReady: true,
         isSyncing: false,
         storageError: "",
       };
+    }
 
     case "WORKSPACE_CACHE":
       return {
@@ -91,7 +102,7 @@ const reducer = (state, action) => {
         isReady: true,
         isSyncing: false,
         storageError:
-          "No se pudo conectar con la API. Mostrando la ultima cache local.",
+          "No se pudo conectar con Supabase. Mostrando la ultima cache local.",
       };
 
     case "WORKSPACE_ERROR":
@@ -150,7 +161,6 @@ export const TicketProvider = ({ children }) => {
   const [state, dispatch] = useReducer(reducer, initialState);
 
   const loadWorkspace = useCallback(async (session) => {
-    apiClient.setToken(session.token);
     const workspace = await loadWorkspaceRequest();
 
     dispatch({
@@ -169,14 +179,12 @@ export const TicketProvider = ({ children }) => {
       dispatch({ type: "BOOT_START" });
 
       try {
-        const storedSession = await loadSession();
+        const currentSession = await getCurrentSessionRequest();
 
-        if (!storedSession) {
+        if (!currentSession) {
           if (isMounted) dispatch({ type: "BOOT_GUEST" });
           return;
         }
-
-        apiClient.setToken(storedSession.token);
 
         try {
           const workspace = await loadWorkspaceRequest();
@@ -186,7 +194,7 @@ export const TicketProvider = ({ children }) => {
               type: "WORKSPACE_SUCCESS",
               payload: {
                 ...workspace,
-                session: storedSession,
+                session: currentSession,
               },
             });
           }
@@ -197,7 +205,7 @@ export const TicketProvider = ({ children }) => {
             dispatch({
               type: "WORKSPACE_CACHE",
               payload: {
-                session: storedSession,
+                session: currentSession,
                 cache: cachedWorkspace,
               },
             });
@@ -212,7 +220,7 @@ export const TicketProvider = ({ children }) => {
             type: "WORKSPACE_ERROR",
             payload:
               error.message ||
-              "No se pudo iniciar la aplicacion con la API configurada.",
+              "No se pudo iniciar la aplicacion con Supabase configurado.",
           });
         }
       }
@@ -243,6 +251,30 @@ export const TicketProvider = ({ children }) => {
     state.tickets,
   ]);
 
+  useEffect(() => {
+    if (!state.session?.user?.id) return;
+
+    let isMounted = true;
+
+    const registerNotifications = async () => {
+      try {
+        const registration = await registerForPushNotificationsAsync();
+
+        if (!isMounted || !registration?.token) return;
+
+        await registerPushTokenRequest(registration);
+      } catch {
+        // Notifications are optional; the core ticket flow must keep working.
+      }
+    };
+
+    registerNotifications();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [state.session?.user?.id]);
+
   const login = useCallback(
     async (email, password) => {
       dispatch({ type: "SET_SYNCING", payload: true });
@@ -254,7 +286,6 @@ export const TicketProvider = ({ children }) => {
           user: result.user,
         };
 
-        await saveSession(session);
         dispatch({ type: "LOGIN_SUCCESS", payload: session });
         await loadWorkspace(session);
 
@@ -276,11 +307,17 @@ export const TicketProvider = ({ children }) => {
 
       try {
         const registration = await registerCompanyRequest(payload);
-        const loginResult = await login(payload.adminEmail, payload.adminPassword);
+        const session = await getCurrentSessionRequest();
 
-        if (!loginResult.ok) {
-          return loginResult;
+        if (!session) {
+          return {
+            ok: false,
+            message: "La empresa se registro, pero no se pudo iniciar la sesion.",
+          };
         }
+
+        dispatch({ type: "LOGIN_SUCCESS", payload: session });
+        await loadWorkspace(session);
 
         return {
           ok: true,
@@ -294,12 +331,12 @@ export const TicketProvider = ({ children }) => {
         dispatch({ type: "SET_SYNCING", payload: false });
       }
     },
-    [login]
+    [loadWorkspace]
   );
 
   const logout = useCallback(async () => {
+    await signOutRequest();
     await clearSession();
-    apiClient.setToken("");
     dispatch({ type: "LOGOUT" });
   }, []);
 

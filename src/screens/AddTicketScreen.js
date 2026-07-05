@@ -36,10 +36,19 @@ export default function AddTicketScreen() {
   const [priority, setPriority] = useState(TICKET_PRIORITY.MEDIUM);
   const [feedback, setFeedback] = useState({ type: "", message: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const activeApplications = useMemo(
+    () => applications.filter((application) => application.isActive !== false),
+    [applications]
+  );
 
   const canSubmit = useMemo(
-    () => title.trim().length > 0 && selectedApplicationId && !isSubmitting,
-    [isSubmitting, selectedApplicationId, title]
+    () =>
+      title.trim().length > 0 &&
+      activeApplications.some(
+        (application) => application.id === selectedApplicationId
+      ) &&
+      !isSubmitting,
+    [activeApplications, isSubmitting, selectedApplicationId, title]
   );
 
   const updateTitle = (value) => {
@@ -98,7 +107,7 @@ export default function AddTicketScreen() {
           <View style={styles.fieldGroup}>
             <Text style={styles.fieldLabel}>Aplicacion</Text>
             <View style={styles.segmentedRow}>
-              {applications.map((application) => {
+              {activeApplications.map((application) => {
                 const selected = application.id === selectedApplicationId;
 
                 return (
