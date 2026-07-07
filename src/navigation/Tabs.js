@@ -6,14 +6,16 @@ import AddTicketScreen from "../screens/AddTicketScreen";
 import HistoryScreen from "../screens/HistoryScreen";
 import AdminScreen from "../screens/AdminScreen";
 import StatsScreen from "../screens/StatsScreen";
+import ProfileScreen from "../screens/ProfileScreen";
 import { useTickets } from "../hooks/useTickets";
 import { colors } from "../styles/colors";
 
 const Tab = createBottomTabNavigator();
 
 export default function Tabs() {
-  const { user } = useTickets();
+  const { activeCompanyId, user } = useTickets();
   const canManageCompany = user?.role === "admin";
+  const hasActiveCompany = Boolean(activeCompanyId);
 
   return (
     <Tab.Navigator
@@ -34,58 +36,72 @@ export default function Tabs() {
         },
       }}
     >
-      <Tab.Screen
-        name="Stats"
-        component={StatsScreen}
-        options={{
-          title: "Estadisticas",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="analytics-outline" size={size} color={color} />
-          ),
-        }}
-      />
+      {hasActiveCompany ? (
+        <>
+          <Tab.Screen
+            name="Stats"
+            component={StatsScreen}
+            options={{
+              title: "Estadisticas",
+              tabBarIcon: ({ color, size }) => (
+                <Ionicons name="analytics-outline" size={size} color={color} />
+              ),
+            }}
+          />
 
-      <Tab.Screen
-        name="Tickets"
-        component={TicketsScreen}
-        options={{
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="list-outline" size={size} color={color} />
-          ),
-        }}
-      />
+          <Tab.Screen
+            name="Tickets"
+            component={TicketsScreen}
+            options={{
+              tabBarIcon: ({ color, size }) => (
+                <Ionicons name="list-outline" size={size} color={color} />
+              ),
+            }}
+          />
 
-      <Tab.Screen
-        name="Agregar"
-        component={AddTicketScreen}
-        options={{
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="add-circle-outline" size={size} color={color} />
-          ),
-        }}
-      />
+          <Tab.Screen
+            name="Agregar"
+            component={AddTicketScreen}
+            options={{
+              tabBarIcon: ({ color, size }) => (
+                <Ionicons name="add-circle-outline" size={size} color={color} />
+              ),
+            }}
+          />
 
-      <Tab.Screen
-        name="Historial"
-        component={HistoryScreen}
-        options={{
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="time-outline" size={size} color={color} />
-          ),
-        }}
-      />
+          <Tab.Screen
+            name="Historial"
+            component={HistoryScreen}
+            options={{
+              tabBarIcon: ({ color, size }) => (
+                <Ionicons name="time-outline" size={size} color={color} />
+              ),
+            }}
+          />
 
-      {canManageCompany ? (
+          {canManageCompany ? (
+            <Tab.Screen
+              name="Admin"
+              component={AdminScreen}
+              options={{
+                tabBarIcon: ({ color, size }) => (
+                  <Ionicons name="settings-outline" size={size} color={color} />
+                ),
+              }}
+            />
+          ) : null}
+        </>
+      ) : null}
+
         <Tab.Screen
-          name="Admin"
-          component={AdminScreen}
+          name="Perfil"
+          component={ProfileScreen}
           options={{
             tabBarIcon: ({ color, size }) => (
-              <Ionicons name="settings-outline" size={size} color={color} />
+              <Ionicons name="person-circle-outline" size={size} color={color} />
             ),
           }}
         />
-      ) : null}
     </Tab.Navigator>
   );
 }

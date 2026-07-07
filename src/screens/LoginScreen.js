@@ -8,13 +8,11 @@ import { colors } from "../styles/colors";
 import { styles } from "../styles/styles";
 
 export default function LoginScreen({ initialError = "" }) {
-  const { login, registerCompany, isSyncing } = useTickets();
+  const { login, registerAccount, isSyncing } = useTickets();
   const [mode, setMode] = useState("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [companyName, setCompanyName] = useState("");
-  const [applicationName, setApplicationName] = useState("");
-  const [adminName, setAdminName] = useState("");
+  const [name, setName] = useState("");
   const [feedback, setFeedback] = useState(initialError);
 
   const submit = async () => {
@@ -28,12 +26,10 @@ export default function LoginScreen({ initialError = "" }) {
 
   const submitRegistration = async () => {
     setFeedback("");
-    const result = await registerCompany({
-      companyName,
-      applicationName,
-      adminName,
-      adminEmail: email,
-      adminPassword: password,
+    const result = await registerAccount({
+      name,
+      email,
+      password,
     });
 
     if (!result.ok) {
@@ -86,7 +82,7 @@ export default function LoginScreen({ initialError = "" }) {
                     mode === "register" && styles.segmentButtonTextActive,
                   ]}
                 >
-                  Registrar empresa
+                  Crear cuenta
                 </Text>
               </Pressable>
             </View>
@@ -96,35 +92,13 @@ export default function LoginScreen({ initialError = "" }) {
             {mode === "register" ? (
               <>
                 <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>Empresa</Text>
+                  <Text style={styles.fieldLabel}>Nombre</Text>
                   <TextInput
-                    onChangeText={setCompanyName}
-                    placeholder="Nombre de la empresa"
-                    placeholderTextColor={colors.textDim}
-                    style={styles.input}
-                    value={companyName}
-                  />
-                </View>
-
-                <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>Aplicacion inicial</Text>
-                  <TextInput
-                    onChangeText={setApplicationName}
-                    placeholder="Ej. Portal clientes"
-                    placeholderTextColor={colors.textDim}
-                    style={styles.input}
-                    value={applicationName}
-                  />
-                </View>
-
-                <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>Nombre administrador</Text>
-                  <TextInput
-                    onChangeText={setAdminName}
+                    onChangeText={setName}
                     placeholder="Tu nombre"
                     placeholderTextColor={colors.textDim}
                     style={styles.input}
-                    value={adminName}
+                    value={name}
                   />
                 </View>
               </>
@@ -147,7 +121,11 @@ export default function LoginScreen({ initialError = "" }) {
               <Text style={styles.fieldLabel}>Contrasena</Text>
               <TextInput
                 onChangeText={setPassword}
-                placeholder="Tu contrasena"
+                placeholder={
+                  mode === "register"
+                    ? "Minimo 8, sin tildes ni espacios"
+                    : "Tu contrasena"
+                }
                 placeholderTextColor={colors.textDim}
                 secureTextEntry
                 style={styles.input}
@@ -155,8 +133,15 @@ export default function LoginScreen({ initialError = "" }) {
               />
             </View>
 
+            {mode === "register" ? (
+              <Text style={styles.helperText}>
+                Puedes usar @ y simbolos. Evita tildes, espacios y correos con
+                caracteres especiales.
+              </Text>
+            ) : null}
+
             <Pressable
-              accessibilityLabel={mode === "login" ? "Iniciar sesion" : "Registrar empresa"}
+              accessibilityLabel={mode === "login" ? "Iniciar sesion" : "Crear cuenta"}
               accessibilityRole="button"
               disabled={isSyncing}
               onPress={mode === "login" ? submit : submitRegistration}
@@ -176,7 +161,7 @@ export default function LoginScreen({ initialError = "" }) {
                   ? "Conectando"
                   : mode === "login"
                     ? "Iniciar sesion"
-                    : "Crear empresa"}
+                    : "Crear cuenta"}
               </Text>
             </Pressable>
 

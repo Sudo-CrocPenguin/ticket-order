@@ -34,10 +34,17 @@ docs/supabase-schema.sql
 Ese SQL crea:
 
 - Tablas de empresas, perfiles, aplicaciones, tickets, comentarios, historial y evidencias.
+- Tablas de membresias e invitaciones para que una cuenta pueda pertenecer a varias empresas.
 - Tipos enum para roles, estados y prioridades.
 - Funciones RPC usadas por la app.
 - Politicas RLS por empresa.
 - Bucket privado `evidences` para archivos.
+
+Al terminar, el SQL fuerza la recarga del schema cache de la API con:
+
+```sql
+notify pgrst, 'reload schema';
+```
 
 ## 4. Probar local
 
@@ -47,15 +54,57 @@ Despues de ejecutar el SQL:
 npm start
 ```
 
-En la pantalla inicial usa `Registrar empresa`. Ese flujo crea:
+En la pantalla inicial usa `Crear cuenta`. Ese flujo crea:
 
 - Usuario Auth en Supabase.
-- Empresa.
-- Aplicacion inicial.
-- Perfil admin asociado a la empresa.
+- Perfil global del usuario.
+
+Despues entra a `Perfil` para:
+
+- Crear una empresa nueva.
+- Cambiar entre empresas donde tienes membresia.
+- Aceptar o rechazar invitaciones.
+
+En `Admin`, una empresa ya no crea contrasenas para otros usuarios. El admin
+invita correos que ya tengan cuenta registrada; la persona invitada acepta desde
+`Perfil`.
 
 ## Limitacion actual
 
-La app puede crear usuarios con email y contrasena inicial, pero no puede cambiar el
-correo de acceso de usuarios existentes desde Expo sin un backend privado. Por eso
-la pantalla Admin bloquea el correo al editar usuarios.
+La app no puede crear cuentas Auth para otras personas desde Admin sin usar una
+clave privada. Por eso Admin envia invitaciones a cuentas que ya existen. Si un
+correo todavia no tiene cuenta, esa persona debe usar `Crear cuenta` primero.
+
+## Recuperar error `register_company`
+
+Si la app muestra:
+
+```text
+Could not find the function public.register_company(...) in the schema cache
+```
+
+significa que la funcion RPC no existe en Supabase o que PostgREST no recargo su
+schema. En Supabase SQL Editor ejecuta `docs/supabase-schema.sql` completo otra
+vez. Luego valida:
+
+```sql
+select
+  n.nspname as schema,
+  p.proname as function,
+  pg_get_function_identity_arguments(p.oid) as arguments
+from pg_proc p
+join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public'
+  and p.proname = 'register_company';
+```
+
+Debe aparecer:
+
+```text
+p_company_name text, p_application_name text, p_admin_name text
+```
+
+Si ya intentaste registrar una empresa antes de instalar la funcion, puede existir
+el usuario en Auth pero sin perfil. Despues de ejecutar el SQL, vuelve a
+`Registrar empresa` con el mismo correo y contrasena; la app iniciara sesion con
+ese usuario y terminara de crear empresa, aplicacion y perfil admin.

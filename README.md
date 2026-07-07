@@ -9,6 +9,9 @@ como una aplicacion completa:
 
 - Cliente Expo para mobile y web.
 - Supabase como backend central con Postgres, Auth y Storage.
+- Cuentas globales con membresias en multiples empresas.
+- Invitaciones para agregar usuarios existentes a una empresa.
+- Selector de empresa activa dentro de la app.
 - Actualizaciones OTA con Expo EAS Update.
 - Pantalla de conectividad cuando no hay internet.
 - Notificaciones push para nuevos tickets y cambios de estado.
@@ -16,7 +19,7 @@ como una aplicacion completa:
 - API Node.js modular conservada como legado local.
 - Persistencia local del servidor en JSON conservada solo para desarrollo legado.
 - Cache local del cliente para tolerar fallos de conexion.
-- Despliegue web + API en Hostinger VPS con Docker y Nginx.
+- Configuracion legacy de Docker/Nginx para Hostinger, conservada como referencia.
 
 ## Para que sirve
 
@@ -66,12 +69,26 @@ docs/                   Arquitectura y API
 ## Como funciona
 
 1. El cliente inicia sesion con Supabase Auth.
-2. El cliente carga empresa, aplicaciones y tickets desde Supabase Postgres.
-3. Las reglas multiempresa se protegen con Row Level Security.
-4. Las acciones de crear ticket, cambiar estado, comentar o adjuntar evidencia
+2. Cada cuenta tiene un perfil global y puede pertenecer a varias empresas.
+3. El cliente carga la empresa activa, sus aplicaciones y tickets desde Supabase Postgres.
+4. Las reglas multiempresa se protegen con Row Level Security y membresias.
+5. Las acciones de crear ticket, cambiar estado, comentar o adjuntar evidencia
    usan funciones RPC y Supabase Storage.
-5. El cliente guarda una cache local de workspace para mostrar la ultima copia
+6. Los administradores invitan correos ya registrados; el usuario acepta o rechaza
+   desde Perfil.
+7. El cliente guarda una cache local de workspace para mostrar la ultima copia
    disponible si falla la conexion.
+
+## Flujo de usuarios y empresas
+
+- `Crear cuenta` registra una cuenta global de Supabase Auth.
+- `Perfil` permite crear empresas nuevas, ver invitaciones pendientes y cambiar
+  entre empresas.
+- `Admin` permite gestionar aplicaciones y enviar invitaciones a usuarios que ya
+  tienen cuenta.
+- Un usuario puede estar en varias empresas con roles distintos.
+- El boton de empresa en la cabecera de Tickets cambia la empresa activa sin
+  cerrar sesion.
 
 ## Desarrollo local
 
@@ -130,7 +147,7 @@ npm test           # pruebas Node del dominio y servicios
 Para publicar cambios OTA despues de tener una build con `expo-updates`:
 
 ```bash
-eas update --channel production --message "Descripcion del cambio"
+eas update --branch preview --platform android --environment preview --message "Descripcion del cambio"
 ```
 
 ## Seguridad de secretos
@@ -147,6 +164,13 @@ En produccion cambia obligatoriamente:
 - `SEED_ADMIN_PASSWORD`
 - `CORS_ORIGIN`
 
+La app Expo solo usa variables publicas de Supabase:
+
+- `EXPO_PUBLIC_SUPABASE_URL`
+- `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+
+Nunca pongas `service_role` ni keys secretas dentro del cliente Expo.
+
 ## Documentacion adicional
 
 - [Arquitectura](docs/ARCHITECTURE.md)
@@ -161,13 +185,18 @@ En produccion cambia obligatoriamente:
 Implementado:
 
 - Cliente conectado a Supabase Auth, Postgres y Storage.
+- Perfil global de usuario con membresias en multiples empresas.
+- Cambio de empresa activa desde la cabecera de Tickets.
+- Pantalla Perfil para empresas, invitaciones y sesion.
+- Invitaciones de empresa para usuarios ya registrados.
 - API legado con login, empresa actual, aplicaciones, tickets, estados,
   comentarios y evidencias.
-- Registro de nuevas empresas con administrador inicial.
-- Pantalla Admin para crear, editar y activar/desactivar aplicaciones y usuarios.
+- Creacion de empresas desde Perfil.
+- Pantalla Admin para crear/editar aplicaciones, invitar usuarios y administrar
+  membresias.
 - Pantalla de estadisticas por estado, prioridad, criticidad y aplicacion.
 - Dominio DDD/POO compartido.
-- Cliente Expo conectado a API.
+- Cliente Expo conectado a Supabase.
 - Version web responsive compilable.
 - Cache local del cliente.
 - Docker/Nginx para Hostinger VPS.
@@ -175,7 +204,7 @@ Implementado:
 
 Siguientes mejoras naturales:
 
-- Base PostgreSQL para produccion de mayor escala.
 - Reseteo seguro de contrasenas.
 - Asignacion de tickets.
+- Notificaciones para invitaciones pendientes.
 - Descarga/preview avanzada de evidencias desde mobile.

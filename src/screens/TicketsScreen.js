@@ -2,6 +2,7 @@ import { FlatList, Pressable, Text, View } from "react-native";
 import { useMemo, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
+import CompanySwitcher from "../components/CompanySwitcher";
 import EmptyState from "../components/EmptyState";
 import SearchBox from "../components/SearchBox";
 import StatsSummary from "../components/StatsSummary";
@@ -70,6 +71,7 @@ export default function TicketsScreen() {
                   </Text>
                 </View>
                 <View style={styles.headerActions}>
+                  <CompanySwitcher />
                   <Pressable
                     accessibilityLabel="Sincronizar tickets"
                     accessibilityRole="button"

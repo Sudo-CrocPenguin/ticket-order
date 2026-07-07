@@ -3,6 +3,8 @@ import { pickEvidence } from "../services/evidencePicker";
 import {
   addTicketCommentRequest,
   addTicketEvidenceRequest,
+  acceptInvitationRequest,
+  createCompanyRequest,
   changeTicketStatusRequest,
   createApplicationRequest,
   createTicketRequest,
@@ -11,8 +13,9 @@ import {
   listUsersRequest,
   loadWorkspaceRequest,
   loginRequest,
+  registerAccountRequest,
   registerPushTokenRequest,
-  registerCompanyRequest,
+  rejectInvitationRequest,
   signOutRequest,
   updateApplicationRequest,
   updateUserRequest,
@@ -20,7 +23,9 @@ import {
 import { registerForPushNotificationsAsync } from "../services/notificationService";
 import {
   clearSession,
+  loadActiveCompanyId,
   loadWorkspaceCache,
+  saveActiveCompanyId,
   saveWorkspaceCache,
 } from "../services/sessionStorage";
 import { getTicketStats, validateTicketInput } from "../utils/ticketUtils";
@@ -31,6 +36,9 @@ export const TicketContext = createContext(null);
 const initialState = {
   session: null,
   company: null,
+  memberships: [],
+  invitations: [],
+  activeCompanyId: "",
   applications: [],
   selectedApplicationId: "",
   tickets: [],
@@ -85,6 +93,7 @@ const reducer = (state, action) => {
       return {
         ...state,
         ...action.payload,
+        activeCompanyId: action.payload.activeCompanyId || "",
         selectedApplicationId: nextSelectedApplicationId,
         tickets: sortTickets(action.payload.tickets || []),
         isReady: true,
@@ -160,16 +169,27 @@ const reducer = (state, action) => {
 export const TicketProvider = ({ children }) => {
   const [state, dispatch] = useReducer(reducer, initialState);
 
-  const loadWorkspace = useCallback(async (session) => {
-    const workspace = await loadWorkspaceRequest();
+  const loadWorkspace = useCallback(async (session, companyId = "") => {
+    const workspace = await loadWorkspaceRequest(companyId);
+    const nextSession = {
+      ...session,
+      user: workspace.user || session.user,
+    };
+
+    await saveActiveCompanyId(workspace.activeCompanyId || "");
 
     dispatch({
       type: "WORKSPACE_SUCCESS",
       payload: {
         ...workspace,
-        session,
+        session: nextSession,
       },
     });
+
+    return {
+      ...workspace,
+      session: nextSession,
+    };
   }, []);
 
   useEffect(() => {
@@ -187,14 +207,20 @@ export const TicketProvider = ({ children }) => {
         }
 
         try {
-          const workspace = await loadWorkspaceRequest();
+          const activeCompanyId = await loadActiveCompanyId();
+          const workspace = await loadWorkspaceRequest(activeCompanyId || "");
+          const session = {
+            ...currentSession,
+            user: workspace.user || currentSession.user,
+          };
 
           if (isMounted) {
+            await saveActiveCompanyId(workspace.activeCompanyId || "");
             dispatch({
               type: "WORKSPACE_SUCCESS",
               payload: {
                 ...workspace,
-                session: currentSession,
+                session,
               },
             });
           }
@@ -238,21 +264,27 @@ export const TicketProvider = ({ children }) => {
 
     saveWorkspaceCache({
       company: state.company,
+      memberships: state.memberships,
+      invitations: state.invitations,
+      activeCompanyId: state.activeCompanyId,
       applications: state.applications,
       selectedApplicationId: state.selectedApplicationId,
       tickets: state.tickets,
     }).catch(() => {});
   }, [
     state.applications,
+    state.activeCompanyId,
     state.company,
+    state.invitations,
     state.isReady,
+    state.memberships,
     state.selectedApplicationId,
     state.session,
     state.tickets,
   ]);
 
   useEffect(() => {
-    if (!state.session?.user?.id) return;
+    if (!state.session?.user?.id || !state.activeCompanyId) return;
 
     let isMounted = true;
 
@@ -262,7 +294,10 @@ export const TicketProvider = ({ children }) => {
 
         if (!isMounted || !registration?.token) return;
 
-        await registerPushTokenRequest(registration);
+        await registerPushTokenRequest({
+          ...registration,
+          companyId: state.activeCompanyId,
+        });
       } catch {
         // Notifications are optional; the core ticket flow must keep working.
       }
@@ -273,7 +308,7 @@ export const TicketProvider = ({ children }) => {
     return () => {
       isMounted = false;
     };
-  }, [state.session?.user?.id]);
+  }, [state.activeCompanyId, state.session?.user?.id]);
 
   const login = useCallback(
     async (email, password) => {
@@ -301,30 +336,23 @@ export const TicketProvider = ({ children }) => {
     [loadWorkspace]
   );
 
-  const registerCompany = useCallback(
+  const registerAccount = useCallback(
     async (payload) => {
       dispatch({ type: "SET_SYNCING", payload: true });
 
       try {
-        const registration = await registerCompanyRequest(payload);
-        const session = await getCurrentSessionRequest();
-
-        if (!session) {
-          return {
-            ok: false,
-            message: "La empresa se registro, pero no se pudo iniciar la sesion.",
-          };
-        }
+        const result = await registerAccountRequest(payload);
+        const session = {
+          token: result.token,
+          user: result.user,
+        };
 
         dispatch({ type: "LOGIN_SUCCESS", payload: session });
         await loadWorkspace(session);
 
-        return {
-          ok: true,
-          registration,
-        };
+        return { ok: true };
       } catch (error) {
-        const message = error.message || "No se pudo registrar la empresa.";
+        const message = error.message || "No se pudo crear la cuenta.";
         dispatch({ type: "SET_ERROR", payload: message });
         return { ok: false, message };
       } finally {
@@ -334,9 +362,37 @@ export const TicketProvider = ({ children }) => {
     [loadWorkspace]
   );
 
+  const createCompany = useCallback(
+    async (payload) => {
+      dispatch({ type: "SET_SYNCING", payload: true });
+
+      try {
+        const registration = await createCompanyRequest({
+          ...payload,
+          adminName: payload.adminName || state.session?.user?.name || "",
+        });
+        const companyId = registration?.company?.id || "";
+        await loadWorkspace(state.session, companyId);
+
+        return {
+          ok: true,
+          registration,
+        };
+      } catch (error) {
+        const message = error.message || "No se pudo crear la empresa.";
+        dispatch({ type: "SET_ERROR", payload: message });
+        return { ok: false, message };
+      } finally {
+        dispatch({ type: "SET_SYNCING", payload: false });
+      }
+    },
+    [loadWorkspace, state.session]
+  );
+
   const logout = useCallback(async () => {
     await signOutRequest();
     await clearSession();
+    await saveActiveCompanyId("");
     dispatch({ type: "LOGOUT" });
   }, []);
 
@@ -346,7 +402,7 @@ export const TicketProvider = ({ children }) => {
     dispatch({ type: "SET_SYNCING", payload: true });
 
     try {
-      await loadWorkspace(state.session);
+      await loadWorkspace(state.session, state.activeCompanyId);
     } catch (error) {
       dispatch({
         type: "SET_ERROR",
@@ -355,7 +411,27 @@ export const TicketProvider = ({ children }) => {
     } finally {
       dispatch({ type: "SET_SYNCING", payload: false });
     }
-  }, [loadWorkspace, state.session]);
+  }, [loadWorkspace, state.activeCompanyId, state.session]);
+
+  const switchCompany = useCallback(
+    async (companyId) => {
+      if (!state.session || companyId === state.activeCompanyId) return { ok: true };
+
+      dispatch({ type: "SET_SYNCING", payload: true });
+
+      try {
+        await loadWorkspace(state.session, companyId);
+        return { ok: true };
+      } catch (error) {
+        const message = error.message || "No se pudo cambiar de empresa.";
+        dispatch({ type: "SET_ERROR", payload: message });
+        return { ok: false, message };
+      } finally {
+        dispatch({ type: "SET_SYNCING", payload: false });
+      }
+    },
+    [loadWorkspace, state.activeCompanyId, state.session]
+  );
 
   const setSelectedApplicationId = useCallback((applicationId) => {
     dispatch({ type: "SET_SELECTED_APPLICATION", payload: applicationId });
@@ -364,7 +440,7 @@ export const TicketProvider = ({ children }) => {
   const createApplication = useCallback(
     async (payload) => {
       try {
-        const result = await createApplicationRequest(payload);
+        const result = await createApplicationRequest(payload, state.activeCompanyId);
         await refreshWorkspace();
         return { ok: true, application: result.application };
       } catch (error) {
@@ -373,7 +449,7 @@ export const TicketProvider = ({ children }) => {
         return { ok: false, message };
       }
     },
-    [refreshWorkspace]
+    [refreshWorkspace, state.activeCompanyId]
   );
 
   const updateApplication = useCallback(
@@ -393,25 +469,26 @@ export const TicketProvider = ({ children }) => {
 
   const listUsers = useCallback(async () => {
     try {
-      const result = await listUsersRequest();
+      const result = await listUsersRequest(state.activeCompanyId);
       return { ok: true, users: result.users };
     } catch (error) {
       const message = error.message || "No se pudieron cargar los usuarios.";
       dispatch({ type: "SET_ERROR", payload: message });
       return { ok: false, message, users: [] };
     }
-  }, []);
+  }, [state.activeCompanyId]);
 
   const createUser = useCallback(async (payload) => {
     try {
-      const result = await createUserRequest(payload);
-      return { ok: true, user: result.user };
+      const result = await createUserRequest(payload, state.activeCompanyId);
+      await refreshWorkspace();
+      return { ok: true, invitation: result.invitation };
     } catch (error) {
       const message = error.message || "No se pudo crear el usuario.";
       dispatch({ type: "SET_ERROR", payload: message });
       return { ok: false, message };
     }
-  }, []);
+  }, [refreshWorkspace, state.activeCompanyId]);
 
   const updateUser = useCallback(async (userId, payload) => {
     try {
@@ -423,6 +500,48 @@ export const TicketProvider = ({ children }) => {
       return { ok: false, message };
     }
   }, []);
+
+  const acceptInvitation = useCallback(
+    async (invitationId) => {
+      if (!state.session) return { ok: false, message: "Debes iniciar sesion." };
+
+      dispatch({ type: "SET_SYNCING", payload: true });
+
+      try {
+        const result = await acceptInvitationRequest(invitationId);
+        await loadWorkspace(state.session, result.membership.companyId);
+        return { ok: true, membership: result.membership };
+      } catch (error) {
+        const message = error.message || "No se pudo aceptar la invitacion.";
+        dispatch({ type: "SET_ERROR", payload: message });
+        return { ok: false, message };
+      } finally {
+        dispatch({ type: "SET_SYNCING", payload: false });
+      }
+    },
+    [loadWorkspace, state.session]
+  );
+
+  const rejectInvitation = useCallback(
+    async (invitationId) => {
+      if (!state.session) return { ok: false, message: "Debes iniciar sesion." };
+
+      dispatch({ type: "SET_SYNCING", payload: true });
+
+      try {
+        const result = await rejectInvitationRequest(invitationId);
+        await loadWorkspace(state.session, state.activeCompanyId);
+        return { ok: true, invitation: result.invitation };
+      } catch (error) {
+        const message = error.message || "No se pudo rechazar la invitacion.";
+        dispatch({ type: "SET_ERROR", payload: message });
+        return { ok: false, message };
+      } finally {
+        dispatch({ type: "SET_SYNCING", payload: false });
+      }
+    },
+    [loadWorkspace, state.activeCompanyId, state.session]
+  );
 
   const addTicket = useCallback(
     async (title, description, priority) => {
@@ -523,6 +642,9 @@ export const TicketProvider = ({ children }) => {
       session: state.session,
       user: state.session?.user || null,
       company: state.company,
+      memberships: state.memberships,
+      invitations: state.invitations,
+      activeCompanyId: state.activeCompanyId,
       applications: state.applications,
       selectedApplicationId: state.selectedApplicationId,
       tickets: activeTickets,
@@ -533,15 +655,19 @@ export const TicketProvider = ({ children }) => {
       storageError: state.storageError,
       stats: getTicketStats(activeTickets, history, state.tickets),
       login,
-      registerCompany,
+      registerAccount,
+      createCompany,
       logout,
       refreshWorkspace,
+      switchCompany,
       setSelectedApplicationId,
       createApplication,
       updateApplication,
       listUsers,
       createUser,
       updateUser,
+      acceptInvitation,
+      rejectInvitation,
       addTicket,
       changeTicketStatus,
       completeTicket,
@@ -556,16 +682,20 @@ export const TicketProvider = ({ children }) => {
       attachEvidence,
       changeTicketStatus,
       completeTicket,
+      createCompany,
       createApplication,
       createUser,
       history,
+      acceptInvitation,
       login,
       listUsers,
       logout,
       refreshWorkspace,
-      registerCompany,
+      registerAccount,
+      rejectInvitation,
       reopenTicket,
       setSelectedApplicationId,
+      switchCompany,
       updateApplication,
       updateUser,
       state,

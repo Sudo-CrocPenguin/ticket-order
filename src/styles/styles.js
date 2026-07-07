@@ -421,6 +421,22 @@ export const styles = StyleSheet.create({
     maxWidth: 360,
     textAlign: "center",
   },
+  modalBackdrop: {
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.58)",
+    flex: 1,
+    justifyContent: "center",
+    padding: 18,
+  },
+  modalPanel: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    maxWidth: 420,
+    padding: 14,
+    width: "100%",
+  },
   storageNotice: {
     backgroundColor: "rgba(242, 95, 92, 0.12)",
     borderColor: colors.danger,

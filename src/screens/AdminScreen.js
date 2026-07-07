@@ -31,7 +31,6 @@ export default function AdminScreen() {
   const [appIsActive, setAppIsActive] = useState(true);
   const [userName, setUserName] = useState("");
   const [userEmail, setUserEmail] = useState("");
-  const [userPassword, setUserPassword] = useState("");
   const [userRole, setUserRole] = useState("developer");
   const [userIsActive, setUserIsActive] = useState(true);
   const [feedback, setFeedback] = useState({ type: "", message: "" });
@@ -44,7 +43,7 @@ export default function AdminScreen() {
 
   useEffect(() => {
     loadUsers();
-  }, []);
+  }, [company?.id]);
 
   const selectApplication = (application) => {
     setSelectedApplicationId(application.id);
@@ -75,7 +74,6 @@ export default function AdminScreen() {
     setSelectedUserId("");
     setUserName("");
     setUserEmail("");
-    setUserPassword("");
     setUserRole("developer");
     setUserIsActive(true);
   };
@@ -115,15 +113,11 @@ export default function AdminScreen() {
 
     const result = selectedUserId
       ? await updateUser(selectedUserId, {
-          name: userName,
-          email: userEmail,
           role: userRole,
           isActive: userIsActive,
         })
       : await createUser({
-          name: userName,
           email: userEmail,
-          password: userPassword,
           role: userRole,
         });
 
@@ -134,16 +128,16 @@ export default function AdminScreen() {
       return;
     }
 
+    if (selectedUserId) {
+      setUsers((currentUsers) =>
+        currentUsers.map((item) => (item.id === result.user.id ? result.user : item))
+      );
+    }
+
     resetUserForm();
-    setUsers((currentUsers) => {
-      const exists = currentUsers.some((item) => item.id === result.user.id);
-      return exists
-        ? currentUsers.map((item) => (item.id === result.user.id ? result.user : item))
-        : [...currentUsers, result.user];
-    });
     setFeedback({
       type: "success",
-      message: selectedUserId ? "Usuario actualizado." : "Usuario creado.",
+      message: selectedUserId ? "Usuario actualizado." : "Invitacion enviada.",
     });
   };
 
@@ -285,7 +279,7 @@ export default function AdminScreen() {
           </View>
 
           <View style={styles.adminPanel}>
-            <Text style={styles.sectionTitle}>Usuarios</Text>
+            <Text style={styles.sectionTitle}>Usuarios e invitaciones</Text>
             {users.map((item) => (
               <Pressable
                 accessibilityRole="button"
@@ -311,9 +305,14 @@ export default function AdminScreen() {
               <Text style={styles.fieldLabel}>Nombre</Text>
               <TextInput
                 onChangeText={setUserName}
-                placeholder="Nombre del usuario"
+                editable={false}
+                placeholder={
+                  selectedUserId
+                    ? "Nombre del usuario"
+                    : "Se toma del perfil registrado"
+                }
                 placeholderTextColor={colors.textDim}
-                style={styles.input}
+                style={[styles.input, styles.inputDisabled]}
                 value={userName}
               />
             </View>
@@ -335,20 +334,10 @@ export default function AdminScreen() {
               />
             </View>
             <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>Contrasena inicial</Text>
-              <TextInput
-                onChangeText={setUserPassword}
-                placeholder={
-                  selectedUserId
-                    ? "No se cambia desde esta vista"
-                    : "Minimo 8 caracteres"
-                }
-                placeholderTextColor={colors.textDim}
-                secureTextEntry
-                editable={!selectedUserId}
-                style={[styles.input, selectedUserId && styles.inputDisabled]}
-                value={userPassword}
-              />
+              <Text style={styles.helperText}>
+                El usuario debe crear su cuenta primero. Luego podra aceptar la
+                invitacion desde Perfil.
+              </Text>
             </View>
             <View style={styles.fieldGroup}>
               <Text style={styles.fieldLabel}>Rol</Text>
@@ -416,30 +405,22 @@ export default function AdminScreen() {
             <Pressable
               accessibilityRole="button"
               disabled={
-                !userName.trim() ||
                 !userEmail.trim() ||
-                (!selectedUserId && !userPassword) ||
                 isSubmitting
               }
               onPress={submitUser}
               style={({ pressed }) => [
                 styles.button,
-                (!userName.trim() ||
-                  !userEmail.trim() ||
-                  (!selectedUserId && !userPassword) ||
-                  isSubmitting) &&
-                  styles.buttonDisabled,
+                (!userEmail.trim() || isSubmitting) && styles.buttonDisabled,
                 pressed &&
-                  userName.trim() &&
                   userEmail.trim() &&
-                  (selectedUserId || userPassword) &&
                   !isSubmitting &&
                   styles.buttonPressed,
               ]}
             >
               <Ionicons name="person-add-outline" size={20} color={colors.black} />
               <Text style={styles.buttonText}>
-                {selectedUserId ? "Guardar usuario" : "Crear usuario"}
+                {selectedUserId ? "Guardar usuario" : "Enviar invitacion"}
               </Text>
             </Pressable>
             {selectedUserId ? (

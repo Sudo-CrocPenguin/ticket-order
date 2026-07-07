@@ -1,10 +1,10 @@
 import { decode } from "base64-arraybuffer";
-import {
-  createEphemeralSupabaseClient,
-  supabase,
-} from "./supabaseClient";
+import { supabase } from "./supabaseClient";
 
 const normalizeEmail = (value) => String(value || "").trim().toLowerCase();
+
+const emailPattern = /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/;
+const printableAsciiNoSpacesPattern = /^[\x21-\x7E]+$/;
 
 const sanitizeFileName = (fileName) =>
   String(fileName || "evidencia")
@@ -20,6 +20,153 @@ const throwIfError = (error, fallbackMessage) => {
   }
 };
 
+const validateEmail = (email) => {
+  if (!emailPattern.test(email)) {
+    throw new Error(
+      "Usa un correo valido sin tildes ni espacios. Ejemplo: nombre@empresa.com."
+    );
+  }
+};
+
+const validatePassword = (password) => {
+  if (String(password || "").length < 8) {
+    throw new Error("La contrasena debe tener minimo 8 caracteres.");
+  }
+
+  if (!printableAsciiNoSpacesPattern.test(password)) {
+    throw new Error(
+      "La contrasena no debe tener tildes ni espacios. Puedes usar letras, numeros y simbolos como @, #, $, %."
+    );
+  }
+};
+
+const validateNewAuthCredentials = ({ email, password }) => {
+  validateEmail(email);
+  validatePassword(password);
+};
+
+const isAlreadyRegisteredAuthError = (error) => {
+  if (!error) return false;
+
+  const code = String(error.code || "").toLowerCase();
+  const message = String(error.message || "").toLowerCase();
+
+  return (
+    code === "user_already_exists" ||
+    code === "email_exists" ||
+    (message.includes("already") &&
+      (message.includes("registered") || message.includes("exists"))) ||
+    message.includes("user already registered")
+  );
+};
+
+const isInvalidCredentialsAuthError = (error) => {
+  const code = String(error?.code || "").toLowerCase();
+  const message = String(error?.message || "").toLowerCase();
+
+  return (
+    code === "invalid_credentials" ||
+    code === "invalid_grant" ||
+    message.includes("invalid login credentials")
+  );
+};
+
+const isEmailNotConfirmedAuthError = (error) => {
+  const code = String(error?.code || "").toLowerCase();
+  const message = String(error?.message || "").toLowerCase();
+
+  return code === "email_not_confirmed" || message.includes("email not confirmed");
+};
+
+const isObfuscatedExistingAuthUser = (user) =>
+  Boolean(user && Array.isArray(user.identities) && user.identities.length === 0);
+
+const isMissingRegisterCompanyRpcError = (error) => {
+  const message = String(error?.message || "").toLowerCase();
+
+  return (
+    message.includes("register_company") &&
+    (message.includes("schema cache") || message.includes("could not find"))
+  );
+};
+
+const ensureRegistrationSession = async (payload) => {
+  const email = normalizeEmail(payload.adminEmail);
+  const password = payload.adminPassword;
+
+  validateNewAuthCredentials({ email, password });
+
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  throwIfError(sessionError, "No se pudo validar la sesion actual.");
+
+  const currentEmail = normalizeEmail(sessionData.session?.user?.email);
+  if (sessionData.session && currentEmail === email) {
+    return sessionData.session;
+  }
+
+  if (sessionData.session) {
+    await supabase.auth.signOut();
+  }
+
+  const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: {
+        name: payload.adminName,
+      },
+    },
+  });
+
+  if (signUpError && !isAlreadyRegisteredAuthError(signUpError)) {
+    throw new Error(
+      signUpError.message || "No se pudo crear el usuario administrador."
+    );
+  }
+
+  if (!signUpError && signUpData.session) {
+    return signUpData.session;
+  }
+
+  const { data: signInData, error: signInError } =
+    await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+  if (signInError) {
+    const userAlreadyExists =
+      isAlreadyRegisteredAuthError(signUpError) ||
+      isObfuscatedExistingAuthUser(signUpData?.user);
+
+    if (isInvalidCredentialsAuthError(signInError)) {
+      throw new Error(
+        userAlreadyExists
+          ? "Ese correo ya existe en Supabase Auth, pero la contrasena no coincide. Usa la contrasena original o elimina ese usuario en Supabase > Authentication > Users y registra de nuevo."
+          : "Supabase no pudo iniciar sesion con ese correo y contrasena. Revisa que Confirm email este desactivado o confirma/elimina ese usuario en Supabase Auth."
+      );
+    }
+
+    if (isEmailNotConfirmedAuthError(signInError)) {
+      throw new Error(
+        "Ese usuario existe, pero el correo no esta confirmado. Desactiva Confirm email en Supabase o confirma/elimina ese usuario en Authentication > Users."
+      );
+    }
+
+    const message = userAlreadyExists
+      ? "Este correo ya existe. Ingresa la contrasena correcta para terminar el registro de la empresa."
+      : "El usuario se creo, pero no se pudo iniciar sesion. Verifica que Confirm email este desactivado en Supabase.";
+
+    throw new Error(signInError.message || message);
+  }
+
+  if (!signInData.session) {
+    throw new Error("No se pudo iniciar sesion para terminar el registro.");
+  }
+
+  return signInData.session;
+};
+
 const mapCompany = (company) =>
   company
     ? {
@@ -31,6 +178,52 @@ const mapCompany = (company) =>
       }
     : null;
 
+const mapProfile = (profile, membership = null) => ({
+  id: profile.id,
+  companyId: membership?.company_id || membership?.companyId || profile.company_id || null,
+  membershipId: membership?.id || membership?.membershipId || null,
+  name: profile.name,
+  email: profile.email,
+  role: membership?.role || profile.role || "viewer",
+  isActive:
+    membership?.is_active ??
+    membership?.isActive ??
+    profile.is_active ??
+    profile.isActive ??
+    true,
+  createdAt: profile.created_at || profile.createdAt,
+  updatedAt: profile.updated_at || profile.updatedAt,
+});
+
+const mapMembership = (membership) => {
+  const profile = membership.profile || membership.profiles || membership.user || null;
+
+  return {
+    id: membership.id,
+    companyId: membership.company_id || membership.companyId,
+    userId: membership.user_id || membership.userId,
+    role: membership.role,
+    isActive: membership.is_active ?? membership.isActive ?? true,
+    acceptedAt: membership.accepted_at || membership.acceptedAt,
+    createdAt: membership.created_at || membership.createdAt,
+    updatedAt: membership.updated_at || membership.updatedAt,
+    company: mapCompany(membership.company || membership.companies),
+    user: profile ? mapProfile(profile, membership) : null,
+  };
+};
+
+const mapInvitation = (invitation) => ({
+  id: invitation.id,
+  companyId: invitation.company_id || invitation.companyId,
+  email: invitation.email,
+  role: invitation.role,
+  status: invitation.status,
+  createdAt: invitation.created_at || invitation.createdAt,
+  updatedAt: invitation.updated_at || invitation.updatedAt,
+  respondedAt: invitation.responded_at || invitation.respondedAt || null,
+  company: mapCompany(invitation.company || invitation.companies),
+});
+
 const mapApplication = (application) => ({
   id: application.id,
   companyId: application.company_id || application.companyId,
@@ -41,16 +234,7 @@ const mapApplication = (application) => ({
   updatedAt: application.updated_at || application.updatedAt,
 });
 
-const mapUser = (profile) => ({
-  id: profile.id,
-  companyId: profile.company_id || profile.companyId,
-  name: profile.name,
-  email: profile.email,
-  role: profile.role,
-  isActive: profile.is_active ?? profile.isActive ?? true,
-  createdAt: profile.created_at || profile.createdAt,
-  updatedAt: profile.updated_at || profile.updatedAt,
-});
+const mapUser = mapProfile;
 
 const mapEvidence = (evidence) => ({
   id: evidence.id,
@@ -113,7 +297,16 @@ const mapTicket = (ticket) => ({
   ),
 });
 
-const fetchCurrentProfile = async () => {
+const upsertCurrentProfile = async (name = "") => {
+  const { data, error } = await supabase.rpc("upsert_user_profile", {
+    p_name: name,
+  });
+
+  throwIfError(error, "No se pudo preparar el perfil del usuario.");
+  return mapProfile(data);
+};
+
+const fetchCurrentProfile = async (fallbackName = "") => {
   const { data: authData, error: authError } = await supabase.auth.getUser();
   throwIfError(authError, "No se pudo validar la sesion.");
 
@@ -132,14 +325,16 @@ const fetchCurrentProfile = async () => {
   throwIfError(error, "No se pudo cargar el perfil del usuario.");
 
   if (!data) {
-    throw new Error("Este usuario no tiene un perfil de empresa configurado.");
+    return upsertCurrentProfile(
+      fallbackName || authData.user.user_metadata?.name || ""
+    );
   }
 
   if (data.is_active === false) {
     throw new Error("Este usuario esta inactivo.");
   }
 
-  return mapUser(data);
+  return mapProfile(data);
 };
 
 export const getCurrentSessionRequest = async () => {
@@ -179,53 +374,175 @@ export const loginRequest = async (credentials) => {
 
 export const signOutRequest = () => supabase.auth.signOut();
 
-export const registerPushTokenRequest = async ({ token, platform }) => {
+export const registerPushTokenRequest = async ({ token, platform, companyId }) => {
   if (!token) return null;
+  if (!companyId) return null;
 
   const { data, error } = await supabase.rpc("register_push_token", {
     p_token: token,
     p_platform: platform || "unknown",
+    p_company_id: companyId,
   });
 
   throwIfError(error, "No se pudo activar las notificaciones.");
   return data;
 };
 
-export const registerCompanyRequest = async (payload) => {
-  const { error: signUpError } = await supabase.auth.signUp({
-    email: normalizeEmail(payload.adminEmail),
-    password: payload.adminPassword,
+export const registerAccountRequest = async (payload) => {
+  const email = normalizeEmail(payload.email);
+  const password = payload.password;
+
+  validateNewAuthCredentials({ email, password });
+
+  const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+    email,
+    password,
     options: {
       data: {
-        name: payload.adminName,
+        name: payload.name,
       },
     },
   });
 
-  throwIfError(signUpError, "No se pudo crear el usuario administrador.");
+  if (signUpError) {
+    if (isAlreadyRegisteredAuthError(signUpError)) {
+      throw new Error(
+        "Ese correo ya existe. Inicia sesion con la contrasena original."
+      );
+    }
+
+    throw new Error(signUpError.message || "No se pudo crear la cuenta.");
+  }
+
+  if (isObfuscatedExistingAuthUser(signUpData.user)) {
+    throw new Error(
+      "Ese correo ya existe. Inicia sesion con la contrasena original."
+    );
+  }
+
+  if (!signUpData.session) {
+    const { data: signInData, error: signInError } =
+      await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+    if (signInError) {
+      if (isInvalidCredentialsAuthError(signInError)) {
+        throw new Error(
+          "La cuenta se creo, pero Supabase no permitio iniciar sesion. Revisa Confirm email o elimina ese usuario en Authentication > Users y vuelve a intentarlo."
+        );
+      }
+
+      throw new Error(signInError.message || "No se pudo iniciar sesion.");
+    }
+
+    if (!signInData.session) {
+      throw new Error("No se pudo iniciar sesion despues de crear la cuenta.");
+    }
+  }
+
+  const user = await upsertCurrentProfile(payload.name);
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+
+  throwIfError(sessionError, "No se pudo cargar la sesion.");
+
+  return {
+    token: sessionData.session?.access_token || "",
+    user,
+  };
+};
+
+export const createCompanyRequest = async (payload) => {
+  const profile = await fetchCurrentProfile(payload.adminName || "");
 
   const { data, error } = await supabase.rpc("register_company", {
     p_company_name: payload.companyName,
     p_application_name: payload.applicationName || "Aplicacion Principal",
-    p_admin_name: payload.adminName,
+    p_admin_name: payload.adminName || profile.name,
   });
+
+  if (error && isMissingRegisterCompanyRpcError(error)) {
+    throw new Error(
+      "Falta instalar la funcion register_company en Supabase. Ejecuta docs/supabase-schema.sql completo en SQL Editor y vuelve a intentar."
+    );
+  }
 
   throwIfError(error, "No se pudo registrar la empresa.");
   return data;
 };
 
-export const loadWorkspaceRequest = async () => {
-  const user = await fetchCurrentProfile();
+export const registerCompanyRequest = createCompanyRequest;
 
-  const [companyResult, applicationsResult, ticketsResult] = await Promise.all([
+export const loadWorkspaceRequest = async (activeCompanyId = "") => {
+  const profile = await fetchCurrentProfile();
+
+  const [membershipsResult, invitationsResult] = await Promise.all([
     supabase
-      .from("companies")
-      .select("id, name, slug, created_at, updated_at")
-      .eq("id", user.companyId)
-      .single(),
+      .from("company_memberships")
+      .select(
+        `
+        id,
+        company_id,
+        user_id,
+        role,
+        is_active,
+        accepted_at,
+        created_at,
+        updated_at,
+        company:companies (id, name, slug, created_at, updated_at)
+      `
+      )
+      .eq("user_id", profile.id)
+      .eq("is_active", true)
+      .order("created_at", { ascending: true }),
+    supabase
+      .from("company_invitations")
+      .select(
+        `
+        id,
+        company_id,
+        email,
+        role,
+        status,
+        responded_at,
+        created_at,
+        updated_at,
+        company:companies (id, name, slug, created_at, updated_at)
+      `
+      )
+      .eq("email", profile.email)
+      .eq("status", "pending")
+      .order("created_at", { ascending: true }),
+  ]);
+
+  throwIfError(membershipsResult.error, "No se pudieron cargar las empresas.");
+  throwIfError(invitationsResult.error, "No se pudieron cargar las invitaciones.");
+
+  const memberships = (membershipsResult.data || []).map(mapMembership);
+  const invitations = (invitationsResult.data || []).map(mapInvitation);
+  const activeMembership =
+    memberships.find((membership) => membership.companyId === activeCompanyId) ||
+    memberships[0] ||
+    null;
+
+  if (!activeMembership?.companyId) {
+    return {
+      user: mapProfile(profile),
+      company: null,
+      memberships,
+      invitations,
+      activeCompanyId: "",
+      applications: [],
+      tickets: [],
+    };
+  }
+
+  const [applicationsResult, ticketsResult] = await Promise.all([
     supabase
       .from("applications")
       .select("id, company_id, name, description, is_active, created_at, updated_at")
+      .eq("company_id", activeMembership.companyId)
       .order("created_at", { ascending: true }),
     supabase
       .from("tickets")
@@ -247,26 +564,38 @@ export const loadWorkspaceRequest = async () => {
         statusHistory:ticket_status_logs (*)
       `
       )
+      .eq("company_id", activeMembership.companyId)
       .order("updated_at", { ascending: false }),
   ]);
 
-  throwIfError(companyResult.error, "No se pudo cargar la empresa.");
   throwIfError(applicationsResult.error, "No se pudieron cargar las aplicaciones.");
   throwIfError(ticketsResult.error, "No se pudieron cargar los tickets.");
 
   return {
-    company: mapCompany(companyResult.data),
+    user: mapProfile(profile, {
+      id: activeMembership.id,
+      company_id: activeMembership.companyId,
+      role: activeMembership.role,
+      is_active: activeMembership.isActive,
+    }),
+    company: activeMembership.company,
+    memberships,
+    invitations,
+    activeCompanyId: activeMembership.companyId,
     applications: (applicationsResult.data || []).map(mapApplication),
     tickets: (ticketsResult.data || []).map(mapTicket),
   };
 };
 
-export const createApplicationRequest = async (payload) => {
-  const user = await fetchCurrentProfile();
+export const createApplicationRequest = async (payload, companyId) => {
+  if (!companyId) {
+    throw new Error("Selecciona una empresa antes de crear aplicaciones.");
+  }
+
   const { data, error } = await supabase
     .from("applications")
     .insert({
-      company_id: user.companyId,
+      company_id: companyId,
       name: payload.name,
       description: payload.description || "",
     })
@@ -295,85 +624,117 @@ export const updateApplicationRequest = async (applicationId, payload) => {
   return { application: mapApplication(data) };
 };
 
-export const listUsersRequest = async () => {
+export const listUsersRequest = async (companyId) => {
+  if (!companyId) {
+    return { users: [] };
+  }
+
   const { data, error } = await supabase
-    .from("profiles")
-    .select("id, company_id, name, email, role, is_active, created_at, updated_at")
-    .order("name", { ascending: true });
+    .from("company_memberships")
+    .select(
+      `
+      id,
+      company_id,
+      user_id,
+      role,
+      is_active,
+      accepted_at,
+      created_at,
+      updated_at,
+      profile:profiles (id, name, email, is_active, created_at, updated_at)
+    `
+    )
+    .eq("company_id", companyId)
+    .order("created_at", { ascending: true });
 
   throwIfError(error, "No se pudieron cargar los usuarios.");
-  return { users: (data || []).map(mapUser) };
+  return {
+    users: (data || []).map((membership) => {
+      const mapped = mapMembership(membership);
+      return {
+        ...mapped.user,
+        id: mapped.id,
+        membershipId: mapped.id,
+        userId: mapped.userId,
+        companyId: mapped.companyId,
+        role: mapped.role,
+        isActive: mapped.isActive,
+      };
+    }),
+  };
 };
 
-export const createUserRequest = async (payload) => {
-  const currentUser = await fetchCurrentProfile();
-  const authClient = createEphemeralSupabaseClient();
+export const createUserRequest = async (payload, companyId) => {
   const email = normalizeEmail(payload.email);
 
-  const { data: authData, error: authError } = await authClient.auth.signUp({
-    email,
-    password: payload.password,
-    options: {
-      data: {
-        name: payload.name,
-      },
-    },
+  validateEmail(email);
+
+  const { data, error } = await supabase.rpc("invite_company_member", {
+    p_company_id: companyId,
+    p_email: email,
+    p_role: payload.role || "developer",
   });
 
-  throwIfError(authError, "No se pudo crear el acceso del usuario.");
-
-  if (!authData.user?.id) {
-    throw new Error("No se pudo obtener el usuario creado.");
-  }
-
-  const { data, error } = await supabase
-    .from("profiles")
-    .insert({
-      id: authData.user.id,
-      company_id: currentUser.companyId,
-      name: payload.name,
-      email,
-      role: payload.role || "developer",
-    })
-    .select("id, company_id, name, email, role, is_active, created_at, updated_at")
-    .single();
-
-  throwIfError(error, "No se pudo crear el perfil del usuario.");
-  return { user: mapUser(data) };
+  throwIfError(error, "No se pudo enviar la invitacion.");
+  return { invitation: mapInvitation(data) };
 };
 
-export const updateUserRequest = async (userId, payload) => {
-  const { data: currentProfile, error: currentError } = await supabase
-    .from("profiles")
-    .select("email")
-    .eq("id", userId)
-    .single();
-
-  throwIfError(currentError, "No se pudo cargar el usuario.");
-
-  if (
-    payload.email !== undefined &&
-    normalizeEmail(payload.email) !== normalizeEmail(currentProfile.email)
-  ) {
-    throw new Error(
-      "El correo de acceso no se puede cambiar desde esta version sin un backend privado."
-    );
-  }
-
+export const updateUserRequest = async (membershipId, payload) => {
   const updates = {};
-  if (payload.name !== undefined) updates.name = payload.name;
   if (payload.role !== undefined) updates.role = payload.role;
   if (payload.isActive !== undefined) updates.is_active = Boolean(payload.isActive);
 
   const { data, error } = await supabase
-    .from("profiles")
+    .from("company_memberships")
     .update(updates)
-    .eq("id", userId)
-    .select("id, company_id, name, email, role, is_active, created_at, updated_at")
+    .eq("id", membershipId)
+    .select(
+      `
+      id,
+      company_id,
+      user_id,
+      role,
+      is_active,
+      accepted_at,
+      created_at,
+      updated_at,
+      profile:profiles (id, name, email, is_active, created_at, updated_at)
+    `
+    )
     .single();
 
   throwIfError(error, "No se pudo actualizar el usuario.");
-  return { user: mapUser(data) };
+  const mapped = mapMembership(data);
+
+  return {
+    user: {
+      ...mapped.user,
+      id: mapped.id,
+      membershipId: mapped.id,
+      userId: mapped.userId,
+      companyId: mapped.companyId,
+      role: mapped.role,
+      isActive: mapped.isActive,
+    },
+  };
+};
+
+export const acceptInvitationRequest = async (invitationId) => {
+  const { data, error } = await supabase.rpc("accept_company_invitation", {
+    p_invitation_id: invitationId,
+  });
+
+  throwIfError(error, "No se pudo aceptar la invitacion.");
+  return { membership: mapMembership(data) };
+};
+
+export const rejectInvitationRequest = async (invitationId) => {
+  const { data, error } = await supabase.rpc("reject_company_invitation", {
+    p_invitation_id: invitationId,
+  });
+
+  throwIfError(error, "No se pudo rechazar la invitacion.");
+  return { invitation: mapInvitation(data) };
 };
 
 export const createTicketRequest = async (payload) => {
@@ -410,10 +771,17 @@ export const addTicketCommentRequest = async (ticketId, payload) => {
 };
 
 export const addTicketEvidenceRequest = async (ticketId, payload) => {
-  const user = await fetchCurrentProfile();
+  const { data: ticket, error: ticketError } = await supabase
+    .from("tickets")
+    .select("company_id")
+    .eq("id", ticketId)
+    .single();
+
+  throwIfError(ticketError, "No se pudo validar la empresa del ticket.");
+
   const fileData = decode(payload.contentBase64);
   const size = payload.size || fileData.byteLength;
-  const storagePath = `${user.companyId}/${ticketId}/${Date.now()}-${sanitizeFileName(
+  const storagePath = `${ticket.company_id}/${ticketId}/${Date.now()}-${sanitizeFileName(
     payload.fileName
   )}`;
 
