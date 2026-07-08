@@ -70,6 +70,18 @@ deploy/hostinger/       Docker, Nginx y guia VPS
 docs/                   Arquitectura y API
 ```
 
+La raiz del repositorio funciona como orquestador. Las aplicaciones reales viven
+en `apps/`:
+
+- `apps/mobile`: proyecto Expo completo. Desde aqui se ejecutan EAS Build y EAS
+  Update.
+- `apps/web`: proyecto Next.js completo. Desde aqui se despliega la web en
+  Vercel, Netlify u otro hosting compatible con Next.js.
+
+Las carpetas `shared/`, `supabase/`, `docs/` y `server/` se mantienen fuera de
+`apps/` porque no son frontends desplegables. Son dominio compartido,
+infraestructura, documentacion y API legacy.
+
 ## Como funciona
 
 1. El cliente inicia sesion con Supabase Auth.
@@ -111,6 +123,10 @@ cp .env.example .env
 cp apps/mobile/.env.example apps/mobile/.env
 cp apps/web/.env.example apps/web/.env.local
 ```
+
+Los dos clientes usan el mismo proyecto Supabase. La app movil lee variables
+`EXPO_PUBLIC_*` desde `apps/mobile/.env`; la web lee variables `NEXT_PUBLIC_*`
+desde `apps/web/.env.local`.
 
 Ejecuta el SQL de Supabase:
 
@@ -181,6 +197,21 @@ Para publicar cambios OTA despues de tener una build con `expo-updates`:
 ```bash
 cd apps/mobile
 eas update --branch preview --platform android --environment preview --message "Descripcion del cambio"
+```
+
+Para producción:
+
+```bash
+cd apps/mobile
+eas update --channel production --message "Descripcion del cambio"
+```
+
+Para desplegar la web Next.js, usa `apps/web` como directorio del proyecto y
+configura estas variables en el hosting:
+
+```text
+NEXT_PUBLIC_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 ```
 
 ## Seguridad de secretos
