@@ -641,7 +641,14 @@ export const listUsersRequest = async (companyId) => {
       accepted_at,
       created_at,
       updated_at,
-      profile:profiles (id, name, email, is_active, created_at, updated_at)
+      profile:profiles!company_memberships_user_id_fkey (
+        id,
+        name,
+        email,
+        is_active,
+        created_at,
+        updated_at
+      )
     `
     )
     .eq("company_id", companyId)
@@ -698,7 +705,14 @@ export const updateUserRequest = async (membershipId, payload) => {
       accepted_at,
       created_at,
       updated_at,
-      profile:profiles (id, name, email, is_active, created_at, updated_at)
+      profile:profiles!company_memberships_user_id_fkey (
+        id,
+        name,
+        email,
+        is_active,
+        created_at,
+        updated_at
+      )
     `
     )
     .single();

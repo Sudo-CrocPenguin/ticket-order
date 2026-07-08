@@ -1085,6 +1085,7 @@ as $$
        and target.is_active = true
       where viewer.user_id = auth.uid()
         and viewer.is_active = true
+        and viewer.role = 'admin'
     );
 $$;
 
@@ -2044,7 +2045,7 @@ create policy company_memberships_select_company
 on public.company_memberships
 for select
 to authenticated
-using (user_id = auth.uid() or public.has_company_membership(company_id));
+using (user_id = auth.uid() or public.is_company_admin(company_id));
 
 drop policy if exists company_memberships_update_admin on public.company_memberships;
 create policy company_memberships_update_admin
