@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Updates from "expo-updates";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { colors } from "../styles/colors";
 import { styles } from "../styles/styles";
 
@@ -55,7 +56,7 @@ export default function UpdateGate({ children }) {
     const isDownloading = phase === "downloading";
 
     return (
-      <View style={styles.container}>
+      <SafeAreaView edges={["top", "bottom"]} style={styles.container}>
         <View style={styles.centeredScreen}>
           <View style={styles.updateIcon}>
             {isDownloading ? (
@@ -114,7 +115,7 @@ export default function UpdateGate({ children }) {
             </View>
           ) : null}
         </View>
-      </View>
+      </SafeAreaView>
     );
   }
 

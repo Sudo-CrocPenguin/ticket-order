@@ -11,7 +11,7 @@ export default function Root() {
 
   if (!isReady) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView edges={["top", "bottom"]} style={styles.container}>
         <View style={styles.centeredScreen}>
           <ActivityIndicator color={colors.primary} size="large" />
           <Text style={styles.emptyTitle}>Sincronizando</Text>

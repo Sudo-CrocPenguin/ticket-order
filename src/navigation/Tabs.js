@@ -1,5 +1,6 @@
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import TicketsScreen from "../screens/TicketsScreen";
 import AddTicketScreen from "../screens/AddTicketScreen";
@@ -13,9 +14,11 @@ import { colors } from "../styles/colors";
 const Tab = createBottomTabNavigator();
 
 export default function Tabs() {
+  const insets = useSafeAreaInsets();
   const { activeCompanyId, user } = useTickets();
   const canManageCompany = user?.role === "admin";
   const hasActiveCompany = Boolean(activeCompanyId);
+  const tabBarBottomInset = Math.max(insets.bottom, 8);
 
   return (
     <Tab.Navigator
@@ -24,8 +27,8 @@ export default function Tabs() {
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.border,
-          height: 64,
-          paddingBottom: 8,
+          height: 56 + tabBarBottomInset,
+          paddingBottom: tabBarBottomInset,
           paddingTop: 8,
         },
         tabBarActiveTintColor: colors.primary,

@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, Platform, Pressable, Text, View } from "react-native";
 import NetInfo, { useNetInfo } from "@react-native-community/netinfo";
 import { Ionicons } from "@expo/vector-icons";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { colors } from "../styles/colors";
 import { styles } from "../styles/styles";
 
@@ -36,7 +37,7 @@ export default function ConnectivityGate({ children }) {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView edges={["top", "bottom"]} style={styles.container}>
       <View style={styles.centeredScreen}>
         <View style={styles.offlineIcon}>
           <Ionicons name="wifi-outline" size={30} color={colors.black} />
@@ -72,6 +73,6 @@ export default function ConnectivityGate({ children }) {
           </Pressable>
         </View>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
