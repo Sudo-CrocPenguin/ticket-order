@@ -1,6 +1,6 @@
 # Expo updates
 
-La app usa `expo-updates` + EAS Update para mostrar una pantalla de
+La app movil vive en `apps/mobile` y usa `expo-updates` + EAS Update para mostrar una pantalla de
 actualizacion cuando existe una nueva version OTA compatible.
 
 ## Que cubre
@@ -26,7 +26,7 @@ La app tiene:
   "policy": "appVersion"
 },
 "updates": {
-  "url": "https://u.expo.dev/112e3974-1151-40aa-b4f9-001ce0b83fc1",
+  "url": "https://u.expo.dev/42d2c77c-665b-4326-9f07-a5919af99e12",
   "checkAutomatically": "NEVER"
 }
 ```
@@ -40,12 +40,14 @@ Despues de tener una build instalada que incluya `expo-updates`, publica cambios
 JS/UI con:
 
 ```bash
+cd apps/mobile
 eas update --channel production --message "Descripcion del cambio"
 ```
 
 Para pruebas internas:
 
 ```bash
+cd apps/mobile
 eas update --channel preview --message "Prueba de actualizacion"
 ```
 
@@ -55,12 +57,14 @@ La primera vez que agregas `expo-updates` debes generar e instalar una nueva
 build, porque es una dependencia nativa:
 
 ```bash
+cd apps/mobile
 eas build --profile production --platform android
 ```
 
 o para prueba interna:
 
 ```bash
+cd apps/mobile
 eas build --profile preview --platform android
 ```
 

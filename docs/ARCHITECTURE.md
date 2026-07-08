@@ -82,7 +82,7 @@ los datos sobrevivan a despliegues.
 
 ## Cliente
 
-El cliente usa `TicketContext` como fachada de aplicacion:
+El cliente movil vive en `apps/mobile` y usa `TicketContext` como fachada de aplicacion:
 
 - Bloquea la carga con `ConnectivityGate` cuando no hay internet.
 - Carga sesion desde Supabase Auth.
@@ -92,8 +92,8 @@ El cliente usa `TicketContext` como fachada de aplicacion:
 - Expone onboarding de empresa y acciones administrativas para usuarios y
   aplicaciones.
 
-La app compila tanto para mobile como para web. Los contenedores de pantalla
-usan `maxWidth` y layouts con wrap para funcionar en movil y desktop.
+La app movil compila con Expo. La web principal vive separada en `apps/web`
+como dashboard Next.js y usa la misma base Supabase.
 
 ## Seguridad
 

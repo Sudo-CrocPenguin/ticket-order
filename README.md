@@ -7,7 +7,8 @@ cada problema por empresa y por aplicacion.
 El proyecto nacio como una app Expo con persistencia local. Ahora esta preparado
 como una aplicacion completa:
 
-- Cliente Expo para mobile y web.
+- Cliente Expo movil en `apps/mobile`.
+- Dashboard web Next.js en `apps/web`.
 - Supabase como backend central con Postgres, Auth y Storage.
 - Cuentas globales con membresias en multiples empresas.
 - Invitaciones para agregar usuarios existentes a una empresa.
@@ -35,7 +36,8 @@ Cada cambio de estado queda registrado en el historial del ticket.
 
 ## Stack
 
-- Expo SDK 54.
+- Expo SDK 54 para la app movil en `apps/mobile`.
+- Next.js para la web en `apps/web`.
 - React Native 0.81.
 - React 19.
 - React Navigation 7.
@@ -48,15 +50,17 @@ Cada cambio de estado queda registrado en el historial del ticket.
 ## Estructura
 
 ```text
-App.js
-src/                    Cliente Expo mobile/web
-  components/           UI reutilizable
-  context/              Estado cliente-servidor
-  navigation/           Login gate y tabs
-  screens/              Pantallas de producto
-  services/             API, sesion, cache y evidencias
-  styles/               Tokens visuales
-  utils/                Formato, busqueda y etiquetas UI
+apps/
+  mobile/               App Expo / React Native
+    App.js
+    app.json
+    eas.json
+    src/
+    assets/
+  web/                  Dashboard web Next.js
+    app/
+    components/
+    lib/
 server/                 API Node.js
   src/application/      Casos de uso
   src/config/           Entorno y carga .env
@@ -96,12 +100,16 @@ Instala dependencias:
 
 ```bash
 npm install
+npm --prefix apps/mobile install
+npm --prefix apps/web install
 ```
 
-Crea `.env` desde el ejemplo y configura Supabase:
+Crea los `.env` desde los ejemplos y configura Supabase:
 
 ```bash
 cp .env.example .env
+cp apps/mobile/.env.example apps/mobile/.env
+cp apps/web/.env.example apps/web/.env.local
 ```
 
 Ejecuta el SQL de Supabase:
@@ -117,16 +125,35 @@ anterior:
 npm run api
 ```
 
-Levanta el cliente:
+Levanta la app movil Expo:
 
 ```bash
 npm start
 ```
 
-Para web:
+Levanta la web Next.js:
 
 ```bash
 npm run web
+```
+
+Tambien puedes ejecutar cada app desde su carpeta:
+
+```bash
+cd apps/mobile
+npm install
+npm start
+
+cd apps/web
+npm install
+npm run dev
+```
+
+Tambien puedes ejecutarlas desde la raiz despues de instalar sus dependencias:
+
+```bash
+npm run mobile:start
+npm run web:app:dev
 ```
 
 En un dispositivo fisico no necesitas IP LAN para la base central: la app se
@@ -136,17 +163,23 @@ conecta a `EXPO_PUBLIC_SUPABASE_URL`.
 
 ```bash
 npm run api        # API Node local
-npm start          # Expo
+npm start          # Expo movil
 npm run android    # Expo Android
 npm run ios        # Expo iOS
-npm run web        # Expo Web dev
-npm run build:web  # export web estatica a dist/
+npm run mobile:web # Expo Web legacy/dev
+npm run web        # Next.js web app
+npm run web:app:dev    # Next.js web app
+npm run web:app:build  # build de la web Next.js
+npm run web:app:start  # servir build Next.js
+npm run build:web        # build de la web Next.js
+npm run build:mobile:web # export Expo web estatica
 npm test           # pruebas Node del dominio y servicios
 ```
 
 Para publicar cambios OTA despues de tener una build con `expo-updates`:
 
 ```bash
+cd apps/mobile
 eas update --branch preview --platform android --environment preview --message "Descripcion del cambio"
 ```
 
@@ -196,8 +229,9 @@ Implementado:
   membresias.
 - Pantalla de estadisticas por estado, prioridad, criticidad y aplicacion.
 - Dominio DDD/POO compartido.
-- Cliente Expo conectado a Supabase.
+- Cliente Expo en `apps/mobile` conectado a Supabase.
 - Version web responsive compilable.
+- Dashboard web Next.js inicial en `apps/web`.
 - Cache local del cliente.
 - Docker/Nginx para Hostinger VPS.
 - Pruebas basicas del dominio y servicios.

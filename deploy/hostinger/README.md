@@ -16,7 +16,7 @@ en la misma URL bajo `/api`. Los datos locales viven en volumenes Docker:
 Desde la raiz del proyecto:
 
 ```bash
-EXPO_PUBLIC_API_URL=/api npm run build:web
+EXPO_PUBLIC_API_URL=/api npm run build:mobile:web
 ```
 
 Expo genera `dist/`, que esta ignorado por git porque es un artefacto de build.
