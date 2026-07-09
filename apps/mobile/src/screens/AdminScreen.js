@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Pressable, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { SafeAreaView } from "react-native-safe-area-context";
+import KeyboardAwareScreen from "../components/KeyboardAwareScreen";
 import { useTickets } from "../hooks/useTickets";
 import { colors } from "../styles/colors";
 import { styles } from "../styles/styles";
@@ -196,8 +196,7 @@ export default function AdminScreen() {
   };
 
   return (
-    <SafeAreaView edges={["top"]} style={styles.container}>
-      <ScrollView contentContainerStyle={styles.screenPadding}>
+    <KeyboardAwareScreen contentContainerStyle={styles.screenPadding}>
         <View style={styles.headerBlock}>
           <Text style={styles.header}>Administracion</Text>
           <Text style={styles.subtitle}>
@@ -547,7 +546,6 @@ export default function AdminScreen() {
             ) : null}
           </View>
         </View>
-      </ScrollView>
-    </SafeAreaView>
+    </KeyboardAwareScreen>
   );
 }
